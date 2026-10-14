@@ -1,10 +1,40 @@
+# Dependencies, local tooling and generated records
 node_modules/
 .wrangler/
+.playwright-cli/
+__pycache__/
+*.py[cod]
+*.log
+/output/
+/work/
+.DS_Store
+Thumbs.db
+
+# Local credentials; examples can be tracked
 .dev.vars*
 .env*
 !.dev.vars.example
 !.env.example
-output/
-.playwright-cli/
-.DS_Store
-Thumbs.db
+
+# All image assets stay local, including generated charts and source archives
+/my-site/public/assets/
+/assets-source/
+*.[pP][nN][gG]
+*.[aA][pP][nN][gG]
+*.[jJ][pP][gG]
+*.[jJ][pP][eE][gG]
+*.[gG][iI][fF]
+*.[wW][eE][bB][pP]
+*.[sS][vV][gG]
+*.[aA][vV][iI][fF]
+*.[bB][mM][pP]
+*.[iI][cC][oO]
+*.[iI][cC][nN][sS]
+*.[tT][iI][fF]
+*.[tT][iI][fF][fF]
+*.[hH][eE][iI][cC]
+*.[hH][eE][iI][fF]
+*.[jJ][xX][lL]
+*.[pP][sS][dD]
+*.[eE][pP][sS]
+*.zip

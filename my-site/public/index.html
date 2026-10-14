@@ -4,39 +4,74 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f3f3ef">
-  <meta name="description" content="数字金融、设计与 AI 的个人网站，展示 MovieDB、CryptoFactor 和 StudyJourney 项目。">
+  <meta name="description" content="数字金融、设计与 AI 的个人网站，展示数据研究、产品设计与视觉小说制作。">
   <title>folio. / 个人作品集</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23232322'/%3E%3Ctext x='10' y='30' fill='%23f3f3ef' font-family='Arial' font-size='32'%3Ef%3C/text%3E%3C/svg%3E">
-  <link rel="preload" as="image" href="assets/architecture.jpg" fetchpriority="high">
+  <!-- Lucide CodeXml; license: vendor/lucide-LICENSE.txt -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23232322' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m18 16 4-4-4-4'/%3E%3Cpath d='m6 8-4 4 4 4'/%3E%3Cpath d='m14.5 4-5 16'/%3E%3C/svg%3E">
   <script>document.documentElement.classList.add('js');</script>
   <link rel="stylesheet" href="style.css">
-  <script src="app.js" defer></script>
+  <link rel="modulepreload" href="intro.js">
+  <link rel="modulepreload" href="vendor/ascii-fluid.js">
+  <script type="module" src="app.js"></script>
+  <script type="module" src="intro.js"></script>
 </head>
 <body>
-  <a class="skip-link" href="#main">跳转至内容</a>
+  <a class="skip-link" href="#main">跳转至内容&nbsp;<span class="link-arrow" data-icon="arrow-right" aria-hidden="true">→</span></a>
+  <button class="directory-trigger" type="button" aria-label="目录页" aria-haspopup="dialog" aria-expanded="false" aria-controls="site-directory">
+    <span data-icon="list" aria-hidden="true"></span>
+  </button>
+  <dialog class="directory-page" id="site-directory" aria-labelledby="directory-title" data-fluid>
+    <div class="intro-fluid" aria-hidden="true"><canvas id="directory-fluid"></canvas></div>
+    <button class="directory-close" type="button" aria-label="返回页面"><span data-icon="x" aria-hidden="true"></span></button>
+    <h2 class="sr-only" id="directory-title" tabindex="-1">网站目录</h2>
+    <div class="page-grid">
+      <nav class="visual contact-details directory-navigation" aria-label="网站目录">
+        <div class="contact-methods directory-sections">
+          <div><a class="intro-detail directory-chinese" href="#intro">序言 <span class="link-arrow" data-icon="arrow-right" aria-hidden="true">→</span></a></div>
+          <div class="directory-project-group">
+            <ul class="directory-projects" aria-label="项目"></ul>
+          </div>
+          <div class="directory-contact-group"><a class="intro-detail directory-chinese" href="#contact">联系 <span class="link-arrow" data-icon="arrow-right" aria-hidden="true">→</span></a></div>
+        </div>
+      </nav>
+    </div>
+  </dialog>
   <main id="main" tabindex="-1" aria-label="作品集画布">
-    <section class="page active" id="intro" aria-labelledby="intro-title" data-label="序言 / Introduction">
+    <section class="page" id="intro" aria-labelledby="intro-title" data-label="序言 / Introduction" data-fluid>
+      <div class="intro-fluid" aria-hidden="true"><canvas id="intro-fluid"></canvas></div>
       <div class="page-grid">
         <div class="copy hero-copy">
-          <h1 id="intro-title" lang="en" tabindex="-1">Digital finance<br>student.<br>Design &amp; AI.</h1>
-          <p class="intro-note">用设计与 AI 探索更清晰的金融表达。</p>
+          <h1 id="intro-title" lang="en" tabindex="-1">Digital finance<br>& Design<br>Creative coding<span class="accent">.</span></h1>
+          <p class="project-subtitle">用设计与 AI 编码更清晰的金融表达<span class="accent">.</span></p>
         </div>
-        <figure class="visual hero-visual">
-          <img src="assets/architecture.jpg" alt="仰视白色现代建筑，立面线条与天空形成简洁的几何构图" width="1400" height="1750" fetchpriority="high">
-          <figcaption><span>空间里的秩序</span><span>Form follows thought.</span></figcaption>
-        </figure>
+        <div class="visual contact-details hero-highlights" lang="en">
+          <div class="contact-methods">
+            <div>
+              <h2 class="contact-label">What I Do</h2>
+              <p class="intro-detail">Data Science, Graphic Design,<br>Full-stack Web Development,<br>FinTech, Web3</p>
+            </div>
+            <div>
+              <h2 class="contact-label">Languages</h2>
+              <p class="intro-detail">Python, SQL, C,<br>JavaScript / TypeScript, HTML / CSS</p>
+            </div>
+            <figure class="intro-quote">
+              <figcaption class="contact-label">Words to Live By</figcaption>
+              <blockquote><p class="intro-detail">Dream big. Start small.<br>But most of all, start.</p></blockquote>
+            </figure>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section class="page project-page" id="moviedb" aria-labelledby="moviedb-title" data-label="MovieDB / 影视资料库">
+    <section class="page project-page" id="verdant" aria-labelledby="verdant-title" data-label="VERDANT / 加密货币数字指纹">
       <div class="page-grid">
         <div class="copy project-copy">
-          <h2 id="moviedb-title" lang="en" tabindex="-1">Browse films. Track series.</h2>
-          <p class="project-subtitle">影视资料库</p>
-          <p class="body-copy">集中浏览电影与剧集，记录观看进度，查看作品详情与推荐。媒体资源管理将剧集和文件关联起来，让个人收藏与播放入口保持清晰。</p>
+          <h2 id="verdant-title" lang="en" tabindex="-1"><a href="https://xjy.ccpcudati.workers.dev/">VERDANT&nbsp;<span class="link-arrow" data-icon="arrow-right" aria-hidden="true">→</span></a></h2>
+          <p class="project-subtitle">加密货币数字指纹</p>
+          <p class="body-copy"><span class="accent">Hackathon S1 &amp; ETH Wuhan<br>冠军作品 · PUBLIC GOOD 赛道优胜</span><br><br>以数字指纹呈现加密货币的市场特征，接入 WebMCP，让 Agent 直接获取数据。获取数据所需的上下文长度节约 40%，Agent 成本减少 40%。</p>
         </div>
-        <div class="visual project-gallery" data-gallery="movieDB" role="group" aria-label="MovieDB 网站截图">
-          <noscript><img src="assets/thumbs/movieDB/MovieDB_首页_最近观看与最近添加.png" alt="MovieDB 首页：最近观看与最近添加" width="960" height="600"></noscript>
+        <div class="visual project-gallery" data-gallery="verdant" role="group" aria-label="VERDANT 网站截图">
+          <noscript><img src="assets/thumbs/hackthon/VERDANT_资产观测_Ethereum数字指纹.webp" alt="VERDANT 首页：Ethereum 数字指纹与市场观测" width="960" height="600" loading="lazy"></noscript>
         </div>
       </div>
     </section>
@@ -44,12 +79,38 @@
     <section class="page project-page" id="cryptofactor" aria-labelledby="cryptofactor-title" data-label="CryptoFactor / 加密因子">
       <div class="page-grid">
         <div class="copy project-copy">
-          <h2 id="cryptofactor-title" lang="en" tabindex="-1">Explore crypto factors and research data.</h2>
-          <p class="project-subtitle">加密因子</p>
-          <p class="body-copy">公开整理因子定义、构建方法与研究依据，并提供因子详情、代币分类和可下载的数据文件，让加密资产研究更容易检索与复现。</p>
+          <h2 id="cryptofactor-title" lang="en" tabindex="-1"><a href="https://cryptofactor.pages.dev/">Explore crypto factors and research data&nbsp;<span class="link-arrow" data-icon="arrow-right" aria-hidden="true">→</span></a></h2>
+          <p class="project-subtitle">加密货币因子数据</p>
+          <p class="body-copy">根据加密货币市场前沿理论、经典论文，推导加密货币因子数据，通过直观的方式展现因子间矩阵关联、市场总体情况概览、数据下载等。数据更新周期为季度。</p>
         </div>
         <div class="visual project-gallery" data-gallery="cryptoFactor" role="group" aria-label="CryptoFactor 网站截图">
-          <noscript><img src="assets/thumbs/cryptoFactor/CryptoFactor_首页_因子数据库概览.png" alt="CryptoFactor 首页：因子数据库概览" width="960" height="600"></noscript>
+          <noscript><img src="assets/thumbs/cryptoFactor/CryptoFactor_首页_因子数据库概览.webp" alt="CryptoFactor 首页：因子数据库概览" width="960" height="600" loading="lazy"></noscript>
+        </div>
+      </div>
+    </section>
+
+    <section class="page project-page" id="scent-dialogue" aria-labelledby="scent-dialogue-title" data-label="SCENT DIALOGUE / 香氛体验设计">
+      <div class="page-grid">
+        <div class="copy project-copy">
+          <h2 id="scent-dialogue-title" lang="en" tabindex="-1">SCENT DIALOGUE</h2>
+          <p class="project-subtitle">跨文化香氛体验设计</p>
+          <p class="body-copy"><span class="accent">L'Oréal BrandStorm 2026<br>中国赛区 Top 200</span><br><br>以 Aesop 为品牌背景，设计面向跨文化交流的香氛概念方案。通过模块化多腔香水瓶与可穿戴香氛胶囊，结合 NFC／QR 连接、香气日记、AI 香氛搭配建议、香气地图与社区分享，让香气成为自我表达与文化理解的媒介。方案涵盖市场洞察、产品与数字体验设计、线上线下营销，并融入可补充模块与触觉交互。</p>
+        </div>
+        <div class="visual project-gallery" data-gallery="scentDialogue" role="group" aria-label="SCENT DIALOGUE 方案与获奖证书">
+          <noscript><img src="assets/thumbs/loreal/ScentDialogue_品牌标识_项目Logo.webp" alt="SCENT DIALOGUE 品牌标识" width="960" height="540" loading="lazy"></noscript>
+        </div>
+      </div>
+    </section>
+
+    <section class="page project-page" id="moviedb" aria-labelledby="moviedb-title" data-label="MovieDB / 影视资料库">
+      <div class="page-grid">
+        <div class="copy project-copy">
+          <h2 id="moviedb-title" lang="en" tabindex="-1">Browse films Track series</h2>
+          <p class="project-subtitle">你的网盘影视库</p>
+          <p class="body-copy">统一管理百度网盘、阿里网盘、夸克网盘等云端或本地的影视资源。通过优雅清晰的界面集中浏览电影与剧集，自动记录观看进度，查看作品详情与推荐。<br><br>*采用本地部署的 IMDB 非商业公开数据、TMDB、MDBList。</p>
+        </div>
+        <div class="visual project-gallery" data-gallery="movieDB" role="group" aria-label="MovieDB 网站截图">
+          <noscript><img src="assets/thumbs/movieDB/MovieDB_首页_最近观看与最近添加.webp" alt="MovieDB 首页：最近观看与最近添加" width="960" height="600" loading="lazy"></noscript>
         </div>
       </div>
     </section>
@@ -57,30 +118,84 @@
     <section class="page project-page" id="studyjourney" aria-labelledby="studyjourney-title" data-label="StudyJourney / 学旅">
       <div class="page-grid">
         <div class="copy project-copy">
-          <h2 id="studyjourney-title" lang="en" tabindex="-1">Plan courses. Track progress.</h2>
+          <h2 id="studyjourney-title" lang="en" tabindex="-1">Plan courses Track progress</h2>
           <p class="project-subtitle">学旅</p>
-          <p class="body-copy">把培养计划、课程安排和毕业要求放在同一条学习路径中。按学期规划课程，核对学分与进度，并通过课表查看每一步的安排。</p>
+          <p class="body-copy">根据学校官网（暂时仅适配中南财经政法大学）学生培养计划、各学期开课课表，以清晰的方式展现学习生涯，并通过简单一操作的拖动、点击完成学习生涯的规划，并自动计算学分匹配情况、自动生成课程表。</p>
         </div>
         <div class="visual project-gallery" data-gallery="studyJourney" role="group" aria-label="学旅网站截图">
-          <noscript><img src="assets/thumbs/studyJourney/StudyJourney_培养计划_课程规划总览.png" alt="学旅培养计划与课程规划总览" width="960" height="600"></noscript>
+          <noscript><img src="assets/thumbs/studyJourney/StudyJourney_培养计划_课程规划总览.webp" alt="学旅培养计划与课程规划总览" width="960" height="600" loading="lazy"></noscript>
         </div>
       </div>
     </section>
 
-    <section class="page" id="contact" aria-labelledby="contact-title" data-label="联系 / Conversation" >
+    <section class="page project-page" id="quantchain" aria-labelledby="quantchain-title" data-label="QuantChain / 供应链数字化研究">
+      <div class="page-grid">
+        <div class="copy project-copy">
+          <h2 id="quantchain-title" lang="en" tabindex="-1">QuantChain</h2>
+          <p class="project-subtitle">供应链数字化与企业现金持有</p>
+          <p class="body-copy"><span class="accent">第十二届“明理杯”大学生创新创业竞赛</span><br><br>围绕供应链数字化对企业现金持有水平的影响开展实证研究。通过年报文本分析与 Word2Vec 相似词扩展构建数字化指标，结合双向固定效应回归、倾向得分匹配与稳健性检验，考察融资约束、信息透明度与供应链韧性的作用机制，并分析市场集中度和科技金融政策的调节作用。</p>
+        </div>
+        <div class="visual project-gallery" data-gallery="quantchain" role="group" aria-label="QuantChain 研究背景、实证设计与研究意义">
+          <noscript><img src="assets/thumbs/quantchain/slide-02.webp" alt="QuantChain 研究汇报目录" width="960" height="540" loading="lazy"></noscript>
+        </div>
+      </div>
+    </section>
+
+    <section class="page project-page research-page" id="auto-research" aria-labelledby="auto-research-title" data-label="汽车研究 / Auto Research">
+      <div class="page-grid">
+        <div class="copy project-copy">
+          <h2 id="auto-research-title" lang="en" tabindex="-1">Forecasts meet context</h2>
+          <p class="project-subtitle">汽车企业舆情检测</p>
+          <p class="body-copy">以汽车产量预测为核心，构建历史序列预测与政策、行业、车型舆情分析原型。把产量计划与实际、新闻样本和行业公开数据放在同一研究视野中，辅助理解预测背景。</p>
+        </div>
+        <div class="visual project-gallery research-gallery" data-gallery="autoResearch" role="group" aria-label="汽车产量与舆情研究图表">
+          <noscript><img src="assets/autoResearch/figure-01.svg" alt="固定车型组的月度产量与计划图表" width="920" height="590" loading="lazy"></noscript>
+        </div>
+      </div>
+    </section>
+
+    <section class="page project-page story-page" id="fogharbor" aria-labelledby="fogharbor-title" data-label="雾港七日 / Visual Novel">
+      <div class="page-grid">
+        <div class="copy project-copy">
+          <h2 id="fogharbor-title" lang="en" tabindex="-1">Seven days<br>in the fog</h2>
+          <p class="project-subtitle">视觉小说《雾港七日》</p>
+          <p class="body-copy">《雾港七日》是一部以海雾、记忆与循环为线索的视觉小说。通过调查与关键选择推进故事，走向四种不同结局；一周目约 30 分钟。</p>
+        </div>
+        <div class="visual story-visual" aria-label="雾港七日游戏画面与人物">
+          <div class="story-tabs" role="tablist" aria-label="图片类型">
+            <button type="button" id="story-tab-scenes" role="tab" aria-controls="story-panel-scenes" aria-selected="true" data-story-tab="scenes">场景档案</button>
+            <button type="button" id="story-tab-endings" role="tab" aria-controls="story-panel-endings" aria-selected="false" tabindex="-1" data-story-tab="endings">结局画面</button>
+            <button type="button" id="story-tab-portraits" role="tab" aria-controls="story-panel-portraits" aria-selected="false" tabindex="-1" data-story-tab="portraits">人物立绘</button>
+          </div>
+          <div class="project-gallery story-gallery" id="story-panel-scenes" data-gallery="galgameScenes" role="tabpanel" aria-labelledby="story-tab-scenes">
+            <noscript><img src="assets/thumbs/galgame/雾港七日_场景_标题画面.webp" alt="《雾港七日》标题画面" width="960" height="559" loading="lazy"></noscript>
+          </div>
+          <div class="project-gallery story-gallery" id="story-panel-endings" data-gallery="galgameEndings" role="tabpanel" aria-labelledby="story-tab-endings" hidden></div>
+          <div class="project-gallery story-gallery story-portraits" id="story-panel-portraits" data-gallery="galgamePortraits" role="tabpanel" aria-labelledby="story-tab-portraits" hidden></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="contact" aria-labelledby="contact-title" data-label="联系 / Conversation" data-fluid>
+      <div class="intro-fluid" aria-hidden="true"><canvas id="contact-fluid"></canvas></div>
       <div class="page-grid">
         <div class="copy contact-copy">
           <h2 id="contact-title" tabindex="-1">Good things<br>start with<br>a conversation<span class="accent">.</span></h2>
-          <p class="project-subtitle">从一个想法开始。</p>
-          <p class="body-copy">关于设计、影像，或一个尚未成形的计划。<br>让对话成为下一步的起点。</p>
+          <p class="project-subtitle">妙想始于言谈<span class="accent">.</span></p>
         </div>
         <div class="visual contact-details">
           <div class="contact-methods" aria-label="联系方式">
-            <div class="contact-method"><p class="contact-label">Gmail</p><a href="mailto:ccpcudati@gmail.com">ccpcudati@gmail.com</a></div>
-            <div class="contact-method"><p class="contact-label">X</p><a href="https://x.com/jvvvvb0" target="_blank" rel="noopener noreferrer">@jvvvvb0</a></div>
+            <div class="contact-method"><p class="contact-label">Gmail</p><a href="mailto:ccpcudati@gmail.com">ccpcudati@gmail.com&nbsp;<span class="link-arrow" data-icon="arrow-right" aria-hidden="true">→</span></a></div>
+            <div class="contact-method"><p class="contact-label">X</p><a href="https://x.com/jvvvvb0" target="_blank" rel="noopener noreferrer">@jvvvvb0&nbsp;<span class="link-arrow" data-icon="arrow-right" aria-hidden="true">→</span></a></div>
             <div class="contact-method"><p class="contact-label">GitHub</p><p class="contact-status">Blocked Currently</p></div>
           </div>
-          <a class="text-link" href="#intro">回到序言 <span aria-hidden="true">↘</span></a>
+          <div class="site-credits">
+            <div class="credits-links">
+              <a href="https://23rd.dev/docs/components/ascii-fluid" target="_blank" rel="noopener noreferrer">ASCII Fluid <span class="link-arrow" data-icon="arrow-right" aria-hidden="true">→</span></a>
+              <a href="https://lucide.dev/guide/" target="_blank" rel="noopener noreferrer">Lucide <span class="link-arrow" data-icon="arrow-right" aria-hidden="true">→</span></a>
+              <a href="https://developers.cloudflare.com/workers/static-assets/" target="_blank" rel="noopener noreferrer">Cloudflare Workers <span class="link-arrow" data-icon="arrow-right" aria-hidden="true">→</span></a>
+            </div>
+          </div>
         </div>
       </div>
     </section>

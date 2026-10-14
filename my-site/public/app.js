@@ -1,101 +1,267 @@
-document.documentElement.classList.add('js');
+import { icon } from './icons.js';
 
 const pages = [...document.querySelectorAll('.page')];
+const projectPages = pages.filter(page => page.classList.contains('project-page'));
+const contents = document.querySelector('.directory-page');
+const contentsToggle = document.querySelector('.directory-trigger');
+const contentsPanel = contents;
+const directoryContent = contents.querySelector('.page-grid');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let current = Math.max(0, pages.findIndex(page => `#${page.id}` === location.hash));
-let busy = false;
-let wheelTotal = 0;
-let lastWheel = 0;
-let wheelBlockedUntil = 0;
-let wheelGestureLocked = false;
-let pendingHashTarget = null;
-let touchStart = null;
+let scrollFrame = 0;
+let wheelGesture = false;
+let wheelIdleTimer = 0;
+let wheelInputMode = null;
+let navigatingTo = null;
+let contentsAnimation = null;
+let directoryClosePromise = null;
+let directoryOrigin = current;
+let directoryReturnFocus = null;
 
-// All directions describe the CURRENT canvas's movement.
-// Forward boundary 1: outgoing (-x,-y), incoming (+x,+y).
-// Forward boundary 2: outgoing (+x,-y), incoming (-x,+y).
-// Backward movement exactly inverts the same boundary.
-function movement(from, to) {
-  const forward = to > from;
-  const boundary = forward ? from : to;
-  const horizontal = boundary % 2 === 0 ? -1 : 1;
-  return { x: forward ? horizontal : -horizontal, y: forward ? -1 : 1 };
+function updatePageStatus() {
+  document.title = contentsPanel.open ? '目录 / folio.' : `${pages[current].dataset.label.split(' / ')[0]} / folio.`;
+  document.querySelector('#page-status').textContent = `第 ${current + 1} 页，共 ${pages.length} 页。${pages[current].dataset.label}`;
+  contentsPanel.querySelectorAll('a').forEach(link => {
+    const isCurrent = link.hash === `#${pages[current].id}`;
+    if (isCurrent) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+    const indicator = link.querySelector('.link-arrow');
+    const indicatorIcon = isCurrent ? 'circle-dot' : 'arrow-right';
+    if (indicator && indicator.dataset.icon !== indicatorIcon) {
+      indicator.replaceChildren(icon(indicatorIcon));
+      indicator.dataset.icon = indicatorIcon;
+    }
+  });
 }
 
-// Arrows point opposite to the outgoing canvas's movement.
-function arrowFor({ x, y }) { return y < 0 ? (x < 0 ? '↘' : '↙') : (x < 0 ? '↗' : '↖'); }
-function directionName({ x, y }) { return `${x < 0 ? '左' : '右'}${y < 0 ? '上' : '下'}`; }
-
-function updatePageTitle() {
-  document.title = `${pages[current].dataset.label.split(' / ')[0]} / folio.`;
+function notifyDirectoryChange() {
+  window.dispatchEvent(new Event('directorychange'));
 }
 
-function addPageControls(page, index) {
-  const controls = document.createElement('nav');
-  controls.className = 'page-controls';
-  controls.setAttribute('aria-label', '画布切换');
-  for (const [type, target, label] of [['previous', index - 1, '上一页'], ['next', index + 1, '下一页']]) {
-    if (target < 0 || target >= pages.length) continue;
-    const direction = movement(index, target);
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = `page-control ${type}`;
-    button.setAttribute('aria-label', `${label}，当前画布向${directionName(direction)}移出`);
-    button.innerHTML = `<span class="control-arrow" aria-hidden="true">${arrowFor(direction)}</span><span class="control-label">${label}</span>`;
-    button.addEventListener('click', () => goTo(target, { focus: true }));
-    controls.append(button);
-  }
-  page.append(controls);
+function directoryHiddenTransform() {
+  return getComputedStyle(contentsPanel).getPropertyValue('--directory-hidden-transform').trim();
 }
 
-async function goTo(target, { focus = false, history = true } = {}) {
-  if (busy || target < 0 || target >= pages.length || target === current) return;
-  busy = true;
-  const outgoing = pages[current];
+function openContents() {
+  if (contentsPanel.open || directoryClosePromise) return;
+  window.scrollTo({ top: window.scrollY, behavior: 'instant' });
+  navigatingTo = null;
+  updateCurrentPage();
+  directoryOrigin = current;
+  directoryReturnFocus = document.activeElement;
+  closePagePreviews(pages[current]);
+  clearTimeout(wheelIdleTimer);
+  wheelInputMode = null;
+  wheelGesture = false;
+  contentsPanel.showModal();
+  contentsPanel.scrollTop = 0;
+  document.documentElement.classList.add('directory-open');
+  contentsToggle.setAttribute('aria-expanded', 'true');
+  contents.querySelector('#directory-title').focus({ preventScroll: true });
+  updatePageStatus();
+  notifyDirectoryChange();
+  if (reducedMotion.matches) return;
+  const timing = { duration: 620, easing: 'cubic-bezier(.22,.68,.12,1)', fill: 'both' };
+  contentsAnimation = contentsPanel.animate([
+    { transform: directoryHiddenTransform() },
+    { transform: 'translate(0, 0)' },
+  ], timing);
+  const opening = contentsAnimation;
+  opening.finished.then(() => {
+    if (contentsAnimation !== opening || directoryClosePromise) return;
+    opening.cancel();
+    contentsAnimation = null;
+  }).catch(() => {
+    // A return action may interrupt the opening motion.
+  });
+}
+
+function closeContents({ target = directoryOrigin, focusPage = false } = {}) {
+  if (directoryClosePromise) return directoryClosePromise;
+  if (!contentsPanel.open) return Promise.resolve();
+  const transform = getComputedStyle(contentsPanel).transform;
+  contentsAnimation?.cancel();
+  directoryContent.inert = true;
   const incoming = pages[target];
-  outgoing.querySelector('.project-gallery')?._closePreview?.();
-  const { x, y } = movement(current, target);
-  const shift = (sign = 1) => `translate3d(${x * sign * 100}%, ${y * sign * 100}%, 0)`;
-  incoming.classList.add('active');
-  incoming.style.zIndex = '1';
-  incoming.scrollTop = 0;
-  outgoing.inert = true;
-  outgoing.setAttribute('aria-hidden', 'true');
-  if (!reducedMotion.matches) {
-    const timing = { duration: 800, easing: 'cubic-bezier(.65,0,.2,1)', fill: 'both' };
-    const leave = outgoing.animate([{ transform: 'translate3d(0,0,0)', opacity: 1 }, { transform: shift(), opacity: 0.35 }], timing);
-    const enter = incoming.animate([{ transform: shift(-1), opacity: 0.35 }, { transform: 'translate3d(0,0,0)', opacity: 1 }], timing);
-    await Promise.allSettled([leave.finished, enter.finished]);
-    leave.cancel();
-    enter.cancel();
-  }
-  outgoing.classList.remove('active');
-  incoming.style.zIndex = '';
-  incoming.inert = false;
-  incoming.removeAttribute('aria-hidden');
+  activatePage(incoming);
+  navigatingTo = null;
+  window.scrollTo({ top: incoming.offsetTop, behavior: 'instant' });
   current = target;
-  if (history && pendingHashTarget === null) window.history.pushState({ page: target }, '', `#${incoming.id}`);
-  updatePageTitle();
-  document.querySelector('#page-status').textContent = `第 ${current + 1} 页，共 ${pages.length} 页。${incoming.dataset.label}`;
-  if (focus || outgoing.contains(document.activeElement)) incoming.querySelector('h1,h2').focus({ preventScroll: true });
-  wheelTotal = 0;
-  wheelBlockedUntil = performance.now() + 250;
-  busy = false;
-  if (pendingHashTarget !== null) {
-    const pending = pendingHashTarget;
-    pendingHashTarget = null;
-    goTo(pending, { focus: true, history: false });
-  }
+  updatePageStatus();
+
+  directoryClosePromise = (async () => {
+    if (!reducedMotion.matches) {
+      const timing = { duration: 460, easing: 'cubic-bezier(.22,.68,.12,1)', fill: 'both' };
+      contentsAnimation = contentsPanel.animate([
+        { transform },
+        { transform: directoryHiddenTransform() },
+      ], timing);
+      await contentsAnimation.finished.catch(() => {});
+    }
+    contentsPanel.close();
+    contentsAnimation?.cancel();
+    contentsAnimation = null;
+    directoryContent.inert = false;
+    document.documentElement.classList.remove('directory-open');
+    contentsToggle.setAttribute('aria-expanded', 'false');
+    updatePageStatus();
+    notifyDirectoryChange();
+    if (focusPage) incoming.querySelector('h1,h2').focus({ preventScroll: true });
+    else (directoryReturnFocus?.isConnected ? directoryReturnFocus : contentsToggle).focus({ preventScroll: true });
+  })().finally(() => { directoryClosePromise = null; });
+  return directoryClosePromise;
 }
 
-pages.forEach((page, index) => {
-  addPageControls(page, index);
-  page.classList.toggle('active', index === current);
-  page.inert = index !== current;
-  if (index !== current) page.setAttribute('aria-hidden', 'true');
-  else page.removeAttribute('aria-hidden');
+projectPages.forEach(page => {
+  const item = document.createElement('li');
+  const link = document.createElement('a');
+  link.className = 'intro-detail';
+  link.href = `#${page.id}`;
+  const heading = page.querySelector('.project-copy h2').cloneNode(true);
+  heading.querySelectorAll('.link-arrow').forEach(arrow => arrow.remove());
+  heading.querySelectorAll('br').forEach(lineBreak => lineBreak.replaceWith(' '));
+  const projectSubtitle = page.querySelector('.project-subtitle');
+  const title = projectSubtitle.textContent.trim();
+  if (projectSubtitle.lang) link.lang = projectSubtitle.lang;
+  link.classList.toggle('directory-chinese', /[\u3400-\u9fff]/u.test(title));
+  link.append(title);
+  const arrow = document.createElement('span');
+  arrow.className = 'link-arrow';
+  arrow.append(icon('arrow-right'));
+  link.append('\u00a0', arrow);
+  item.append(link);
+  const subtitle = document.createElement('p');
+  subtitle.className = 'contact-label directory-project-subtitle';
+  subtitle.textContent = heading.textContent.replace(/\s+/gu, ' ').trim();
+  if (heading.lang) subtitle.lang = heading.lang;
+  item.append(subtitle);
+  contents.querySelector('.directory-projects').append(item);
 });
-updatePageTitle();
+document.querySelectorAll('[data-icon]').forEach(element => element.replaceChildren(icon(element.dataset.icon)));
+
+contentsToggle.addEventListener('click', openContents);
+contents.querySelector('.directory-close').addEventListener('click', () => closeContents());
+contentsPanel.addEventListener('cancel', event => {
+  event.preventDefault();
+  closeContents();
+});
+reducedMotion.addEventListener('change', () => {
+  if (!reducedMotion.matches) return;
+  contentsAnimation?.cancel();
+  contentsAnimation = null;
+});
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || !contentsPanel.open) return;
+  event.preventDefault();
+  event.stopPropagation();
+  closeContents();
+});
+
+function closePagePreviews(page) {
+  let hadFocus = false;
+  page.querySelectorAll('.project-gallery.is-preview-open').forEach(gallery => {
+    hadFocus ||= gallery.querySelector('.project-preview').contains(document.activeElement);
+    gallery._closePreview();
+  });
+  return hadFocus;
+}
+
+function goTo(target, { focus = false } = {}) {
+  if (target < 0 || target >= pages.length) return;
+  if (directoryClosePromise) {
+    directoryClosePromise.then(() => goTo(target, { focus }));
+    return;
+  }
+  if (contentsPanel.open) {
+    if (location.hash !== `#${pages[target].id}`) window.history.pushState(null, '', `#${pages[target].id}`);
+    closeContents({ target, focusPage: true });
+    return;
+  }
+  activatePage(pages[target]);
+  const previewHadFocus = closePagePreviews(pages[current]);
+  const incoming = pages[target];
+  if (location.hash !== `#${incoming.id}`) window.history.pushState(null, '', `#${incoming.id}`);
+  navigatingTo = reducedMotion.matches || Math.abs(incoming.offsetTop - window.scrollY) < 1 ? null : target;
+  incoming.scrollIntoView({ block: 'start', behavior: reducedMotion.matches ? 'instant' : 'smooth' });
+  if (focus || previewHadFocus) incoming.querySelector('h1,h2').focus({ preventScroll: true });
+}
+
+updatePageStatus();
+
+function updateCurrentPage() {
+  if (navigatingTo !== null && Math.abs(window.scrollY - pages[navigatingTo].offsetTop) < 2) navigatingTo = null;
+  const midpoint = window.scrollY + window.innerHeight / 2;
+  let visible = 0;
+  for (let index = 1; index < pages.length; index += 1) {
+    if (pages[index].offsetTop <= midpoint) visible = index;
+    else break;
+  }
+  if (visible === current) return;
+  const previewHadFocus = closePagePreviews(pages[current]);
+  current = visible;
+  updatePageStatus();
+  if (previewHadFocus) pages[current].querySelector('h1,h2').focus({ preventScroll: true });
+}
+
+function scheduleCurrentPageUpdate() {
+  if (scrollFrame) return;
+  scrollFrame = requestAnimationFrame(() => {
+    scrollFrame = 0;
+    updateCurrentPage();
+  });
+}
+window.addEventListener('scroll', scheduleCurrentPageUpdate, { passive: true });
+window.addEventListener('resize', scheduleCurrentPageUpdate);
+window.addEventListener('hashchange', () => {
+  const target = location.hash ? pages.findIndex(page => `#${page.id}` === location.hash) : 0;
+  if (target >= 0) goTo(target, { focus: true });
+});
+window.addEventListener('popstate', scheduleCurrentPageUpdate);
+window.addEventListener('scrollend', () => { navigatingTo = null; });
+scheduleCurrentPageUpdate();
+
+function isDiscreteWheel(event) {
+  // WheelEvent has no device type. Keep continuous/fractional input native;
+  // recognize line/page steps and the coarse steps produced by mouse wheels.
+  if (event.deltaMode !== 0) return true;
+  const amount = Math.abs(event.deltaY);
+  if (event.deltaX !== 0 || !Number.isInteger(amount) || amount < 40) return false;
+  const legacyStep = Math.abs(event.wheelDeltaY || event.wheelDelta || 0);
+  if (legacyStep === amount * 3 && amount !== 40) return false;
+  return legacyStep ? legacyStep % 120 === 0 : amount >= 80;
+}
+
+window.addEventListener('wheel', event => {
+  if (contentsPanel.open) return;
+  if (event.ctrlKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+  const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1);
+  if (!delta) return;
+  wheelInputMode ??= isDiscreteWheel(event) ? 'mouse' : 'continuous';
+  clearTimeout(wheelIdleTimer);
+  wheelIdleTimer = setTimeout(() => { wheelGesture = false; wheelInputMode = null; }, 180);
+  if (wheelInputMode === 'continuous') {
+    // Let the browser own touchpad movement, inertia and the final snap.
+    navigatingTo = null;
+    return;
+  }
+  if (navigatingTo !== null || wheelGesture) {
+    event.preventDefault();
+    return;
+  }
+
+  const page = pages[current];
+  const pageEnd = Math.max(page.offsetTop, page.offsetTop + page.offsetHeight - window.innerHeight);
+  const withinPage = delta > 0
+    ? window.scrollY < pageEnd - 2
+    : window.scrollY > page.offsetTop + 2;
+  if (page.offsetHeight > window.innerHeight + 2 && withinPage) {
+    return;
+  }
+
+  event.preventDefault();
+  wheelGesture = true;
+  goTo(current + Math.sign(delta));
+}, { passive: false });
 
 document.querySelectorAll('a[href^="#"]:not(.skip-link)').forEach(link => {
   link.addEventListener('click', event => {
@@ -106,236 +272,479 @@ document.querySelectorAll('a[href^="#"]:not(.skip-link)').forEach(link => {
   });
 });
 
-function canScrollWithin(delta) {
-  const page = pages[current];
-  if (page.scrollHeight <= page.clientHeight + 2) return false;
-  return delta > 0 ? page.scrollTop + page.clientHeight < page.scrollHeight - 2 : page.scrollTop > 2;
-}
-
-window.addEventListener('wheel', event => {
-  if (event.ctrlKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
-  const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? innerHeight : 1);
-  if (canScrollWithin(delta) && !busy) return;
-  event.preventDefault();
-  const now = performance.now();
-  const gap = now - lastWheel;
-  lastWheel = now;
-  if (gap > 180) wheelGestureLocked = false;
-  if (busy || now < wheelBlockedUntil || wheelGestureLocked) { wheelTotal = 0; return; }
-  if (gap > 180 || Math.sign(delta) !== Math.sign(wheelTotal)) wheelTotal = 0;
-  wheelTotal += delta;
-  if (Math.abs(wheelTotal) >= 55) {
-    wheelGestureLocked = true;
-    goTo(current + Math.sign(wheelTotal));
-    wheelTotal = 0;
-  }
-}, { passive: false });
-
 window.addEventListener('keydown', event => {
-  if (event.key === 'Escape') {
-    const gallery = pages[current].querySelector('.project-gallery');
-    if (gallery?.classList.contains('is-preview-open')) {
-      event.preventDefault();
-      gallery._closePreview(true);
-      return;
-    }
-  }
-  if (event.ctrlKey || event.metaKey || event.altKey || event.target.closest('input,textarea,select,[contenteditable="true"]')) return;
-  if (event.key === ' ' && event.target.closest('button,a')) return;
-  const delta = ['ArrowDown', 'PageDown', 'ArrowRight', ' '].includes(event.key) ? (event.shiftKey && event.key === ' ' ? -1 : 1) : ['ArrowUp', 'PageUp', 'ArrowLeft'].includes(event.key) ? -1 : 0;
-  if (delta && !canScrollWithin(delta)) { event.preventDefault(); goTo(current + delta, { focus: true }); }
-  if (event.key === 'Home' || event.key === 'End') { event.preventDefault(); goTo(event.key === 'Home' ? 0 : pages.length - 1, { focus: true }); }
+  if (event.key !== 'Escape') return;
+  const gallery = document.querySelector('.project-gallery.is-preview-open');
+  if (!gallery) return;
+  event.preventDefault();
+  gallery._closePreview(true);
 });
 
-window.addEventListener('touchstart', event => {
-  if (event.touches.length !== 1) { touchStart = null; return; }
-  touchStart = { x: event.touches[0].clientX, y: event.touches[0].clientY, time: performance.now(), scrollTop: pages[current].scrollTop };
-}, { passive: true });
-window.addEventListener('touchend', event => {
-  if (!touchStart) return;
-  const delta = touchStart.y - event.changedTouches[0].clientY;
-  const horizontal = touchStart.x - event.changedTouches[0].clientX;
-  const scrolled = Math.abs(touchStart.scrollTop - pages[current].scrollTop) > 2;
-  if (!scrolled && Math.abs(delta) > 55 && Math.abs(delta) > Math.abs(horizontal) * 1.3 && performance.now() - touchStart.time < 700 && !canScrollWithin(delta)) goTo(current + Math.sign(delta));
-  touchStart = null;
-}, { passive: true });
-window.addEventListener('touchcancel', () => { touchStart = null; });
-window.addEventListener('hashchange', () => {
-  const target = pages.findIndex(page => `#${page.id}` === location.hash);
-  if (target < 0) return;
-  if (busy) { pendingHashTarget = target; return; }
-  goTo(target, { focus: true, history: false });
-});
-
-const galleryImages = {
-  movieDB: [
-    'MovieDB_电影分类_影片浏览.png',
-    'MovieDB_影视详情_爱乐之城.png',
-    'MovieDB_媒体资源管理_剧集列表.png',
-    'MovieDB_最受好评电影_推荐列表.png',
-    'MovieDB_影视详情_百年孤独_概览.png',
-    'MovieDB_媒体资源管理_剧集文件关联.png',
-    'MovieDB_影视详情_Pluribus.png',
-    'MovieDB_影视详情_百年孤独_演员与信息.png',
-    'MovieDB_首页_最近观看与最近添加.png'
-  ],
-  cryptoFactor: [
-    'CryptoFactor_代币分类_经济功能分析.png',
-    'CryptoFactor_方法论_因子构建框架.png',
-    'CryptoFactor_数据下载_公共数据文件.png',
-    'CryptoFactor_因子详情_关系网络图.png',
-    'CryptoFactor_因子详情_活跃地址价值因子.png',
-    'CryptoFactor_因子详情_相关性矩阵.png',
-    'CryptoFactor_首页_因子数据库概览.png'
-  ],
-  studyJourney: [
-    'StudyJourney_培养计划_课程添加与编辑.png',
-    'StudyJourney_学期课表_课程时间轴.png',
-    'StudyJourney_学业进度_毕业要求总览.png',
-    'StudyJourney_培养计划_课程规划总览.png'
-  ]
-};
-
-const galleryLayouts = {
-  9: [[2, 3, -4], [30, 1, 4], [15, 17, -2], [1, 33, 3], [32, 31, -4], [17, 49, 2], [3, 63, -3], [33, 61, 4], [18, 42, -1]],
-  7: [[3, 4, -4], [30, 5, 3], [16, 21, -2], [1, 38, 3], [32, 40, -4], [18, 62, 2], [17, 42, -1]],
-  4: [[3, 5, -4], [30, 20, 4], [1, 55, 3], [20, 40, -1]]
+const galleries = {
+  verdant: {
+    directory: "hackthon", kind: "截图",
+    images: [
+      {"file": "VERDANT_资产图鉴_币种指纹总览.png", "label": "VERDANT · 资产图鉴", "position": [2, 3, -4]},
+      {"file": "VERDANT_风险研究_ETH风险概览.png", "label": "VERDANT · ETH 风险研究", "position": [30, 1, 4]},
+      {"file": "VERDANT_风险研究_模型与依据.png", "label": "VERDANT · 模型与依据", "position": [15, 22, -2]},
+      {"file": "VERDANT_报告存证_链上发布与核验.png", "label": "VERDANT · 报告存证", "position": [1, 49, 3]},
+      {"file": "VERDANT_资产详情_市场轨迹与指纹构成.png", "label": "VERDANT · 市场轨迹与指纹构成", "position": [32, 57, -4]},
+      {"file": "VERDANT_资产观测_Ethereum数字指纹.png", "label": "VERDANT · Ethereum 数字指纹与市场观测", "position": [18, 34, 2]},
+    ]
+  },
+  scentDialogue: {
+    directory: "loreal", kind: "图片",
+    images: [
+      {"file": "ScentDialogue_获奖证明_BrandStorm2026中国赛区Top200.png", "label": "SCENT DIALOGUE · 中国赛区 Top 200 证书", "position": [2, 3, -4]},
+      {"file": "ScentDialogue_品牌标识_项目Logo.png", "label": "SCENT DIALOGUE · 品牌标识", "position": [30, 1, 4]},
+      {"file": "ScentDialogue_市场分析_用户洞察与品牌定位.png", "label": "SCENT DIALOGUE · 用户洞察与品牌定位", "position": [1, 49, 3]},
+      {"file": "ScentDialogue_营销策略_推广路径与可持续设计.png", "label": "SCENT DIALOGUE · 营销策略与可持续设计", "position": [32, 57, -4]},
+      {"file": "ScentDialogue_产品设计_模块化香氛与数字体验.png", "label": "SCENT DIALOGUE · 模块化香氛与数字体验", "position": [18, 28, 2]},
+    ]
+  },
+  movieDB: {
+    directory: "movieDB", kind: "截图",
+    images: [
+      {"file": "MovieDB_电影分类_影片浏览.png", "label": "电影分类 · 影片浏览", "position": [2, 3, -4]},
+      {"file": "MovieDB_影视详情_爱乐之城.png", "label": "影视详情 · 爱乐之城", "position": [30, 1, 4]},
+      {"file": "MovieDB_媒体资源管理_剧集列表.png", "label": "媒体资源管理 · 剧集列表", "position": [15, 17, -2]},
+      {"file": "MovieDB_最受好评电影_推荐列表.png", "label": "最受好评电影 · 推荐列表", "position": [1, 33, 3]},
+      {"file": "MovieDB_影视详情_百年孤独_概览.png", "label": "影视详情 · 百年孤独 · 概览", "position": [32, 31, -4]},
+      {"file": "MovieDB_媒体资源管理_剧集文件关联.png", "label": "媒体资源管理 · 剧集文件关联", "position": [17, 49, 2]},
+      {"file": "MovieDB_影视详情_Pluribus.png", "label": "影视详情 · Pluribus", "position": [3, 63, -3]},
+      {"file": "MovieDB_影视详情_百年孤独_演员与信息.png", "label": "影视详情 · 百年孤独 · 演员与信息", "position": [33, 61, 4]},
+      {"file": "MovieDB_首页_最近观看与最近添加.png", "label": "首页 · 最近观看与最近添加", "position": [18, 42, -1]},
+    ]
+  },
+  cryptoFactor: {
+    directory: "cryptoFactor", kind: "截图",
+    images: [
+      {"file": "CryptoFactor_代币分类_经济功能分析.png", "label": "代币分类 · 经济功能分析", "position": [3, 4, -4]},
+      {"file": "CryptoFactor_方法论_因子构建框架.png", "label": "方法论 · 因子构建框架", "position": [30, 5, 3]},
+      {"file": "CryptoFactor_数据下载_公共数据文件.png", "label": "数据下载 · 公共数据文件", "position": [16, 21, -2]},
+      {"file": "CryptoFactor_因子详情_关系网络图.png", "label": "因子详情 · 关系网络图", "position": [1, 38, 3]},
+      {"file": "CryptoFactor_因子详情_活跃地址价值因子.png", "label": "因子详情 · 活跃地址价值因子", "position": [32, 40, -4]},
+      {"file": "CryptoFactor_因子详情_相关性矩阵.png", "label": "因子详情 · 相关性矩阵", "position": [18, 62, 2]},
+      {"file": "CryptoFactor_首页_因子数据库概览.png", "label": "首页 · 因子数据库概览", "position": [17, 42, -1]},
+    ]
+  },
+  studyJourney: {
+    directory: "studyJourney", kind: "截图",
+    images: [
+      {"file": "StudyJourney_培养计划_课程添加与编辑.png", "label": "培养计划 · 课程添加与编辑", "position": [3, 5, -4]},
+      {"file": "StudyJourney_学期课表_课程时间轴.png", "label": "学期课表 · 课程时间轴", "position": [30, 20, 4]},
+      {"file": "StudyJourney_学业进度_毕业要求总览.png", "label": "学业进度 · 毕业要求总览", "position": [1, 55, 3]},
+      {"file": "StudyJourney_培养计划_课程规划总览.png", "label": "培养计划 · 课程规划总览", "position": [20, 40, -1]},
+    ]
+  },
+  quantchain: {
+    directory: "quantchain", kind: "图片",
+    images: [
+      {"file": "slide-02.png", "label": "QuantChain · 研究汇报目录", "position": [2, 3, -4]},
+      {"file": "slide-03.png", "label": "QuantChain · 研究背景", "position": [30, 1, 4]},
+      {"file": "slide-04.png", "label": "QuantChain · 政策背景", "position": [15, 15, -2]},
+      {"file": "slide-05.png", "label": "QuantChain · 社会背景", "position": [1, 49, 3]},
+      {"file": "slide-08.png", "label": "QuantChain · 项目概述与研究框架", "position": [18, 30, 0], "layer": 9},
+      {"file": "slide-10.png", "label": "QuantChain · 变量设定与模型", "position": [34, 32, 3]},
+      {"file": "slide-16.png", "label": "QuantChain · 倾向得分匹配检验", "position": [8, 65, -3]},
+      {"file": "slide-22.png", "label": "QuantChain · 理论意义", "position": [31, 59, 4]},
+    ]
+  },
+  autoResearch: {
+    directory: "autoResearch", kind: "图表",
+    images: [
+      {"file": "figure-01.svg", "label": "固定车型组的月度产量与计划", "position": [2, 4, -4]},
+      {"file": "figure-02.svg", "label": "计划产量相对实际产量的偏离", "position": [29, 9, 3]},
+      {"file": "figure-03.svg", "label": "新闻检索任务的主题分布", "position": [14, 24, -2]},
+      {"file": "figure-04.svg", "label": "新闻样本的字段可用性", "position": [31, 40, 3]},
+      {"file": "figure-05.svg", "label": "全国新能源汽车产量：年度参照", "position": [17, 56, -1], "sources": [{"label": "国家统计局 2024 年统计公报", "href": "https://www.stats.gov.cn/sj/zxfb/202502/t20250228_1958817.html"}, {"label": "国家统计局 2025 年统计公报", "href": "https://www.stats.gov.cn/sj/zxfb/202602/t20260228_1962662.html"}]},
+    ]
+  },
+  galgameScenes: {
+    directory: "galgame", kind: "截图",
+    images: [
+      {"file": "雾港七日_场景_标题画面.png", "label": "标题画面", "position": [2, 3, -4]},
+      {"file": "雾港七日_场景_夜晚的房间.png", "label": "夜晚的房间", "position": [30, 1, 4]},
+      {"file": "雾港七日_场景_海岸相遇.png", "label": "海岸相遇", "position": [15, 17, -2]},
+      {"file": "雾港七日_场景_放学之后.png", "label": "放学之后", "position": [1, 33, 3]},
+      {"file": "雾港七日_场景_天文社室.png", "label": "天文社室", "position": [32, 31, -4]},
+      {"file": "雾港七日_场景_雾钟咖啡店.png", "label": "雾钟咖啡店", "position": [17, 49, 2]},
+      {"file": "雾港七日_场景_街道选择.png", "label": "街道选择", "position": [3, 63, -3]},
+      {"file": "雾港七日_场景_图书馆.png", "label": "图书馆", "position": [33, 61, 4]},
+    ]
+  },
+  galgameEndings: {
+    directory: "galgame", kind: "结局画面",
+    images: [
+      {"file": "雾港七日_结局_END1遗忘.webp", "label": "END 1 / 遗忘", "position": [3, 5, -4]},
+      {"file": "雾港七日_结局_END2离岸.webp", "label": "END 2 / 离岸", "position": [30, 20, 4]},
+      {"file": "雾港七日_结局_END3留在雾里.webp", "label": "END 3 / 留在雾里", "position": [1, 55, 3]},
+      {"file": "雾港七日_结局_END4雾港七日.webp", "label": "END 4 / 雾港七日", "position": [20, 40, -1]},
+    ]
+  },
+  galgamePortraits: {
+    directory: "galgame", kind: "立绘",
+    images: [
+      {"file": "雾港七日_立绘_澄恋.png", "label": "澄恋"},
+      {"file": "雾港七日_立绘_茜.png", "label": "茜"},
+      {"file": "雾港七日_立绘_海斗.png", "label": "海斗"},
+      {"file": "雾港七日_立绘_流转.png", "label": "流转"},
+      {"file": "雾港七日_立绘_凛子.png", "label": "凛子"},
+      {"file": "雾港七日_立绘_彻.png", "label": "彻"},
+    ]
+  },
 };
 
 document.querySelectorAll('.project-gallery').forEach(gallery => {
-  const galleryName = gallery.dataset.gallery;
-  const files = galleryImages[galleryName];
-  const layout = galleryLayouts[files.length];
+  const config = galleries[gallery.dataset.gallery];
   const page = gallery.closest('.project-page');
+  const portrait = config.kind === '立绘';
+  const research = config.kind === '图表';
   const preview = document.createElement('figure');
   preview.className = 'project-preview';
   preview.inert = true;
   const frame = document.createElement('div');
   frame.className = 'preview-frame';
-  const previewThumb = document.createElement('img');
+  let previewThumb = document.createElement('img');
   previewThumb.className = 'preview-thumb';
   previewThumb.alt = '';
-  previewThumb.width = 960;
-  previewThumb.height = 600;
-  const previewFull = document.createElement('img');
+  let previewFull = document.createElement('img');
   previewFull.className = 'preview-full';
-  previewFull.width = 3072;
-  previewFull.height = 1920;
   previewFull.decoding = 'async';
   const closeButton = document.createElement('button');
   closeButton.type = 'button';
   closeButton.className = 'preview-close';
-  closeButton.setAttribute('aria-label', '收起截图');
-  closeButton.textContent = '×';
-  frame.append(previewThumb, previewFull);
-  preview.append(frame, closeButton);
+  closeButton.setAttribute('aria-label', `收起${config.kind}`);
+  closeButton.append(icon('x'));
+  const sources = document.createElement('div');
+  sources.className = 'preview-sources';
+  sources.hidden = true;
+  const errorMessage = document.createElement('p');
+  errorMessage.className = 'preview-error';
+  errorMessage.setAttribute('role', 'status');
+  errorMessage.textContent = '原图加载失败，当前显示预览图。';
+  errorMessage.hidden = true;
+  const loadingStatus = document.createElement('div');
+  loadingStatus.className = 'preview-loading';
+  loadingStatus.setAttribute('role', 'status');
+  loadingStatus.append(icon('loader-circle'), '原图加载中');
+  loadingStatus.hidden = true;
+  frame.append(previewThumb, previewFull, closeButton, sources, errorMessage, loadingStatus);
+  preview.append(frame);
   let requestId = 0;
   let selectedCard = null;
-  let flightAnimation = null;
-  let flightElement = null;
-  let cards;
+  let previewAnimation = null;
+  let previewDimensions = null;
+  let loadingTimer = 0;
+  const exitingElements = [...page.querySelectorAll('.project-copy, .story-tabs')];
 
-  function expandedFrameRect() {
-    const grid = page.querySelector('.page-grid');
-    const copy = page.querySelector('.project-copy');
-    const gridTransition = grid.style.transition;
-    const copyTransition = copy.style.transition;
-    grid.style.transition = 'none';
-    copy.style.transition = 'none';
-    page.classList.add('is-detail-open');
-    const target = frame.getBoundingClientRect();
+  function clearPreviewLoading() {
+    clearTimeout(loadingTimer);
+    loadingTimer = 0;
+    loadingStatus.hidden = true;
+    preview.setAttribute('aria-busy', 'false');
+  }
+
+  function fitPreviewFrame() {
+    if (!previewDimensions) return;
+    const styles = getComputedStyle(frame);
+    const horizontalInset = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight)
+      + parseFloat(styles.borderLeftWidth) + parseFloat(styles.borderRightWidth);
+    const verticalInset = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom)
+      + parseFloat(styles.borderTopWidth) + parseFloat(styles.borderBottomWidth);
+    const width = Math.max(1, preview.clientWidth - horizontalInset);
+    const height = Math.max(1, preview.clientHeight - verticalInset);
+    const scale = Math.min(width / previewDimensions.width, height / previewDimensions.height);
+    frame.style.width = `${previewDimensions.width * scale + horizontalInset}px`;
+    frame.style.height = `${previewDimensions.height * scale + verticalInset}px`;
+  }
+
+  const resizePreview = () => {
+    if (gallery.classList.contains('is-preview-open')) fitPreviewFrame();
+  };
+  new ResizeObserver(resizePreview).observe(preview);
+  window.addEventListener('resize', resizePreview);
+
+  function stopPreviewAnimation() {
+    previewAnimation?.cancel();
+    previewAnimation = null;
+    gallery.classList.remove('is-preview-opening');
+  }
+
+  function finishClose(restoreFocus) {
+    stopPreviewAnimation();
+    gallery.classList.remove('is-preview-open', 'is-preview-ready', 'is-preview-closing');
     page.classList.remove('is-detail-open');
-    grid.getBoundingClientRect();
-    grid.style.transition = gridTransition;
-    copy.style.transition = copyTransition;
-    return target;
+    preview.inert = true;
+    errorMessage.hidden = true;
+    sources.hidden = true;
+    cards.forEach(card => { card.inert = false; });
+    exitingElements.forEach(element => { element.inert = false; });
+    selectedCard?.classList.remove('is-selected');
+    if (restoreFocus) selectedCard?.focus({ preventScroll: true });
+    selectedCard = null;
+    previewDimensions = null;
   }
 
   function closePreview(restoreFocus = false) {
     if (!gallery.classList.contains('is-preview-open')) return;
-    requestId += 1;
-    flightAnimation?.cancel();
-    flightElement?.remove();
-    flightAnimation = null;
-    flightElement = null;
-    gallery.classList.remove('is-preview-open', 'is-preview-ready', 'is-preview-error', 'is-flight');
+    if (restoreFocus && gallery.classList.contains('is-preview-closing')) return;
+    const activeRequest = ++requestId;
+    const fromTransform = getComputedStyle(frame).transform;
+    stopPreviewAnimation();
+    clearPreviewLoading();
+    if (!restoreFocus || reducedMotion.matches || !selectedCard) {
+      finishClose(restoreFocus);
+      return;
+    }
+    gallery.classList.add('is-preview-closing');
     page.classList.remove('is-detail-open');
-    preview.inert = true;
-    cards.forEach(card => { card.inert = false; });
-    if (restoreFocus) selectedCard?.focus({ preventScroll: true });
-    selectedCard = null;
+    const previousTransition = selectedCard.style.transition;
+    selectedCard.style.transition = 'none';
+    const target = selectedCard.getBoundingClientRect();
+    const matrix = new DOMMatrixReadOnly(getComputedStyle(selectedCard).transform);
+    const source = frame.getBoundingClientRect();
+    const dx = target.left + target.width / 2 - source.left - source.width / 2;
+    const dy = target.top + target.height / 2 - source.top - source.height / 2;
+    const sx = selectedCard.offsetWidth * Math.hypot(matrix.a, matrix.b) / source.width;
+    const sy = selectedCard.offsetHeight * Math.hypot(matrix.c, matrix.d) / source.height;
+    const rotation = Math.atan2(matrix.b, matrix.a);
+    selectedCard.style.transition = previousTransition;
+    const animation = frame.animate([
+      { transform: fromTransform },
+      { transform: `translate(${dx}px, ${dy}px) rotate(${rotation}rad) scale(${sx}, ${sy})` },
+    ], { duration: 460, easing: 'cubic-bezier(.22,.68,.12,1)', fill: 'both' });
+    previewAnimation = animation;
+    animation.finished.then(() => {
+      if (activeRequest === requestId) finishClose(true);
+    }).catch(error => {
+      if (error.name !== 'AbortError') {
+        console.error(error);
+        if (activeRequest === requestId) finishClose(true);
+      }
+    });
   }
   gallery._closePreview = closePreview;
   closeButton.addEventListener('click', () => closePreview(true));
 
-  cards = files.map((file, index) => {
-    const [x, y, rotation] = layout[index];
-    const label = file.replace(/^[^_]+_/, '').replace(/\.png$/, '').replaceAll('_', ' · ');
-    const thumbnailPath = `assets/thumbs/${galleryName}/${file}`;
-    const originalPath = `assets/${galleryName}/${file}`;
+  async function expandPreview(source, rotation, sourceWidth, sourceHeight, activeRequest) {
+    const target = frame.getBoundingClientRect();
+    const dx = source.left + source.width / 2 - target.left - target.width / 2;
+    const dy = source.top + source.height / 2 - target.top - target.height / 2;
+    gallery.classList.add('is-preview-opening');
+    const animation = frame.animate([
+      { transform: `translate(${dx}px, ${dy}px) rotate(${rotation}rad) scale(${sourceWidth / target.width}, ${sourceHeight / target.height})` },
+      { transform: 'translate(0, 0) rotate(0) scale(1)' },
+    ], { duration: 540, easing: 'cubic-bezier(.22,.68,.12,1)', fill: 'both' });
+    previewAnimation = animation;
+    try {
+      await animation.finished;
+    } catch (error) {
+      if (error.name !== 'AbortError') console.error(error);
+    } finally {
+      if (activeRequest === requestId) stopPreviewAnimation();
+    }
+  }
+
+  function openPreview(item, card, original, thumbnail) {
+    const activeRequest = ++requestId;
+    stopPreviewAnimation();
+    clearPreviewLoading();
+    const source = card.getBoundingClientRect();
+    const matrix = new DOMMatrixReadOnly(getComputedStyle(card).transform);
+    const rotation = Math.atan2(matrix.b, matrix.a);
+    const sourceWidth = card.offsetWidth * Math.hypot(matrix.a, matrix.b);
+    const sourceHeight = card.offsetHeight * Math.hypot(matrix.c, matrix.d);
+    const cardImage = card.querySelector('img');
+    previewDimensions = {
+      width: cardImage.naturalWidth || cardImage.width,
+      height: cardImage.naturalHeight || cardImage.height,
+    };
+    selectedCard = card;
+    card.classList.add('is-selected');
+    errorMessage.hidden = true;
+    gallery.classList.remove('is-preview-ready');
+    gallery.classList.add('is-preview-open');
+    page.classList.add('is-detail-open');
+    fitPreviewFrame();
+    // Fresh layers discard the previous bitmap and opacity transition immediately.
+    const thumbnailImage = cardImage.cloneNode();
+    thumbnailImage.className = 'preview-thumb';
+    thumbnailImage.alt = '';
+    thumbnailImage.decoding = 'sync';
+    thumbnailImage.removeAttribute('data-src');
+    thumbnailImage.src = cardImage.currentSrc || thumbnail;
+    previewThumb.replaceWith(thumbnailImage);
+    previewThumb = thumbnailImage;
+    const fullImage = document.createElement('img');
+    fullImage.className = 'preview-full';
+    fullImage.decoding = 'async';
+    fullImage.alt = `${item.label}${config.kind}`;
+    previewFull.replaceWith(fullImage);
+    previewFull = fullImage;
+    fullImage.src = original;
+    preview.setAttribute('aria-busy', 'true');
+    loadingTimer = setTimeout(() => {
+      if (activeRequest === requestId) loadingStatus.hidden = false;
+    }, 300);
+    sources.replaceChildren(...(item.sources || []).map(({ label, href }) => {
+      const link = document.createElement('a');
+      link.href = href;
+      link.textContent = label;
+      const arrow = document.createElement('span');
+      arrow.className = 'link-arrow';
+      arrow.setAttribute('aria-hidden', 'true');
+      arrow.append(icon('arrow-right'));
+      link.append('\u00a0', arrow);
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      return link;
+    }));
+    sources.hidden = !item.sources?.length;
+    preview.inert = false;
+    cards.forEach(other => { other.inert = true; });
+    exitingElements.forEach(element => { element.inert = true; });
+    closeButton.focus({ preventScroll: true });
+    if (!reducedMotion.matches) expandPreview(source, rotation, sourceWidth, sourceHeight, activeRequest);
+    fullImage.decode().then(() => {
+      if (activeRequest !== requestId) return;
+      clearPreviewLoading();
+      previewDimensions = { width: fullImage.naturalWidth, height: fullImage.naturalHeight };
+      fitPreviewFrame();
+      gallery.classList.add('is-preview-ready');
+    }).catch(() => {
+      if (activeRequest !== requestId) return;
+      clearPreviewLoading();
+      errorMessage.hidden = false;
+    });
+  }
+
+  const cards = config.images.map((item, index) => {
+    const original = `assets/${config.directory}/${encodeURIComponent(item.file)}`;
+    const thumbnail = research ? original : `assets/thumbs/${config.directory}/${encodeURIComponent(item.file.replace(/\.[^.]+$/, '.webp'))}`;
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'shot-card';
-    card.setAttribute('aria-label', `放大查看${label}截图`);
-    card.style.setProperty('--x', `${x}%`);
-    card.style.setProperty('--y', `${y}%`);
-    card.style.setProperty('--rotation', `${rotation}deg`);
-    card.style.setProperty('--layer', index + 1);
+    card.setAttribute('aria-label', `放大查看${item.label}${config.kind}`);
+    if (!portrait) {
+      const [x, y, rotation] = item.position || [2 + index % 3 * 14, 3 + index % 4 * 17, index % 2 ? 3 : -3];
+      card.style.setProperty('--x', `${x}%`);
+      card.style.setProperty('--y', `${y}%`);
+      card.style.setProperty('--rotation', `${rotation}deg`);
+    }
+    card.style.setProperty('--layer', item.layer ?? index + 1);
     const image = document.createElement('img');
-    image.src = thumbnailPath;
+    image.dataset.src = thumbnail;
     image.alt = '';
-    image.width = 960;
-    image.height = 600;
-    image.loading = 'lazy';
+    image.width = portrait ? 480 : research ? 920 : 960;
+    image.height = portrait ? 720 : research ? 590 : 600;
     image.decoding = 'async';
     card.append(image);
-    card.addEventListener('click', () => {
-      const activeRequest = ++requestId;
-      const source = card.getBoundingClientRect();
-      const target = reducedMotion.matches ? null : expandedFrameRect();
-      selectedCard = card;
-      gallery.classList.remove('is-preview-ready', 'is-preview-error');
-      gallery.classList.add('is-preview-open');
-      if (target) gallery.classList.add('is-flight');
-      page.classList.add('is-detail-open');
-      previewThumb.src = thumbnailPath;
-      previewFull.alt = `${label}截图`;
-      previewFull.src = originalPath;
-      preview.inert = false;
-      cards.forEach(item => { item.inert = true; });
-      closeButton.focus({ preventScroll: true });
-      if (target) {
-        const flight = document.createElement('div');
-        flight.className = 'image-flight';
-        flight.style.left = `${source.left}px`;
-        flight.style.top = `${source.top}px`;
-        flight.style.width = `${source.width}px`;
-        flight.style.height = `${source.height}px`;
-        const flightImage = document.createElement('img');
-        flightImage.src = thumbnailPath;
-        flightImage.alt = '';
-        flight.append(flightImage);
-        document.body.append(flight);
-        flightElement = flight;
-        flightAnimation = flight.animate([
-          { left: `${source.left}px`, top: `${source.top}px`, width: `${source.width}px`, height: `${source.height}px`, filter: 'blur(0)', opacity: 1 },
-          { left: `${target.left}px`, top: `${target.top}px`, width: `${target.width}px`, height: `${target.height}px`, filter: 'blur(5px)', opacity: 0.92 }
-        ], { duration: 540, easing: 'cubic-bezier(.22,.68,.12,1)', fill: 'forwards' });
-        flightAnimation.finished.then(() => {
-          if (activeRequest !== requestId) return;
-          flight.remove();
-          flightElement = null;
-          flightAnimation = null;
-          gallery.classList.remove('is-flight');
-        }).catch(() => {});
-      }
-      previewFull.decode().then(() => {
-        if (activeRequest === requestId) gallery.classList.add('is-preview-ready');
-      }).catch(() => {
-        if (activeRequest === requestId) gallery.classList.add('is-preview-error');
-      });
-    });
+    if (portrait) {
+      const name = document.createElement('span');
+      name.className = 'portrait-name';
+      name.textContent = item.label;
+      card.append(name);
+    }
+    card.addEventListener('click', () => openPreview(item, card, original, thumbnail));
     return card;
   });
   gallery.replaceChildren(...cards, preview);
+});
+
+function activatePage(page) {
+  page.querySelectorAll('.shot-card img[data-src]').forEach(image => {
+    image.loading = 'eager';
+    image.src = image.dataset.src;
+    delete image.dataset.src;
+  });
+}
+
+activatePage(pages[current]);
+if ('IntersectionObserver' in window) {
+  const galleryObserver = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      activatePage(entry.target);
+      galleryObserver.unobserve(entry.target);
+    });
+  }, { rootMargin: '75% 0px' });
+  pages.filter(page => page.querySelector('.project-gallery')).forEach(page => galleryObserver.observe(page));
+} else {
+  pages.forEach(activatePage);
+}
+
+const storyTabs = [...document.querySelectorAll('[data-story-tab]')];
+const storyPanels = storyTabs.map(tab => document.getElementById(tab.getAttribute('aria-controls')));
+let storyAnimations = [];
+let storyTransitionId = 0;
+function selectStoryTab(tab, directionHint = 0) {
+  const nextIndex = storyTabs.indexOf(tab);
+  const previousIndex = storyTabs.findIndex(item => item.getAttribute('aria-selected') === 'true');
+  if (nextIndex === previousIndex) return;
+
+  const transitionId = ++storyTransitionId;
+  storyAnimations.forEach(animation => animation.cancel());
+  storyAnimations = [];
+  storyPanels.forEach((panel, index) => {
+    panel.classList.remove('is-entering', 'is-exiting');
+    panel.hidden = index !== previousIndex;
+    panel.inert = index !== previousIndex;
+    panel.removeAttribute('aria-hidden');
+  });
+
+  const outgoing = storyPanels[previousIndex];
+  const incoming = storyPanels[nextIndex];
+  outgoing._closePreview?.();
+  outgoing.inert = true;
+  outgoing.setAttribute('aria-hidden', 'true');
+  incoming.hidden = false;
+  incoming.inert = !reducedMotion.matches;
+  storyTabs.forEach((item, index) => {
+    const selected = index === nextIndex;
+    item.setAttribute('aria-selected', String(selected));
+    item.tabIndex = selected ? 0 : -1;
+  });
+
+  if (reducedMotion.matches) {
+    outgoing.hidden = true;
+    outgoing.removeAttribute('aria-hidden');
+    return;
+  }
+
+  const direction = directionHint || Math.sign(nextIndex - previousIndex);
+  const timing = { duration: 340, easing: 'cubic-bezier(.22,.68,.12,1)', fill: 'forwards' };
+  outgoing.classList.add('is-exiting');
+  incoming.classList.add('is-entering');
+  const leave = outgoing.animate([
+    { transform: 'translateX(0)', opacity: 1, filter: 'blur(0px)' },
+    { transform: `translateX(${-18 * direction}px)`, opacity: 0, filter: 'blur(2.5px)' }
+  ], timing);
+  const enter = incoming.animate([
+    { transform: `translateX(${18 * direction}px)`, opacity: 0, filter: 'blur(2.5px)' },
+    { transform: 'translateX(0)', opacity: 1, filter: 'blur(0px)' }
+  ], timing);
+  storyAnimations = [leave, enter];
+  Promise.allSettled(storyAnimations.map(animation => animation.finished)).then(() => {
+    if (transitionId !== storyTransitionId) return;
+    outgoing.hidden = true;
+    outgoing.removeAttribute('aria-hidden');
+    outgoing.classList.remove('is-exiting');
+    incoming.classList.remove('is-entering');
+    incoming.inert = false;
+    storyAnimations.forEach(animation => animation.cancel());
+    storyAnimations = [];
+  });
+}
+storyTabs.forEach((tab, index) => {
+  tab.addEventListener('click', () => selectStoryTab(tab));
+  tab.addEventListener('keydown', event => {
+    const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+    const target = event.key === 'Home' ? 0 : event.key === 'End' ? storyTabs.length - 1 : step ? (index + step + storyTabs.length) % storyTabs.length : -1;
+    if (target < 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    selectStoryTab(storyTabs[target], step);
+    storyTabs[target].focus();
+  });
 });
