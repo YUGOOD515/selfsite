@@ -428,6 +428,74 @@ main {
 .intro-quote blockquote {
   margin: 0;
 }
+/* 序言页：技能与语言图标、荣誉、滚动提示 */
+.intro-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.intro-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.42em 1.05em;
+  max-width: 30em;
+  font-size: clamp(16px, 1.55vw, 23px);
+  font-weight: 500;
+  line-height: 1.25;
+}
+.intro-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42em;
+}
+.tag-icon {
+  flex: none;
+  width: 0.95em;
+  height: 0.95em;
+  color: var(--muted);
+  transition: color 260ms var(--ease), translate 260ms var(--ease);
+}
+.intro-list li:hover .tag-icon {
+  color: var(--brand, var(--accent));
+  translate: 0 -2px;
+}
+.intro-list--lang .tag-icon {
+  color: var(--brand);
+}
+.intro-scroll {
+  position: absolute;
+  left: max(var(--gutter), calc((100vw - 1760px) / 2));
+  bottom: clamp(28px, 5dvh, 48px);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  transition: color 200ms var(--ease);
+}
+.intro-scroll:hover {
+  color: var(--ink);
+}
+.scroll-icon {
+  width: 16px;
+  height: 16px;
+  animation: scroll-nudge 2.2s var(--ease) 1.4s infinite;
+}
+@keyframes scroll-nudge {
+  0%, 60%, 100% { translate: 0 0; }
+  30% { translate: 0 5px; }
+}
+.js #intro .intro-scroll {
+  animation: rise-in 900ms cubic-bezier(0.22, 1, 0.36, 1) 520ms both;
+}
+@media (min-width: 768px) {
+  /* 标题固定三行：Windows 等无 SF Pro 的系统用 Arial 时会宽出几像素 */
+  .hero-copy h1 {
+    white-space: nowrap;
+  }
+}
 .hero-copy h1 {
   margin: 0;
   font-size: clamp(45px, 5.2vw, 90px);
