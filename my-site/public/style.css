@@ -6,7 +6,12 @@
   --accent: #9a4d40;
   --line: #c9c9c2;
   --gutter: clamp(24px, 4.2vw, 80px);
-  --ease: cubic-bezier(0.22, 0.68, 0.12, 1);
+  /* 动效参数：JS 通过 js/motion.js 读取同一套值 */
+  --ease: cubic-bezier(0.22, 0.68, 0.12, 1); /* 位移、面板、放大缩回 */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1); /* 浮现、淡入 */
+  --dur-fast: 200ms; /* 悬停、颜色等小反馈 */
+  --dur-base: 440ms; /* 切换、展开收起、交叉淡入 */
+  --dur-slow: 680ms; /* 目录滑入、内容浮现 */
   --font-body:
     "SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, Arial,
     "PingFang SC", "苹方_中等", "Microsoft YaHei", sans-serif;
@@ -35,7 +40,7 @@ a {
   height: 1em;
   vertical-align: -0.15em;
   white-space: nowrap;
-  transition: transform 250ms var(--ease);
+  transition: transform var(--dur-fast) var(--ease);
 }
 a:hover .link-arrow,
 a:focus-visible .link-arrow {
@@ -149,7 +154,7 @@ html.lenis body {
 }
 .js #intro .copy > *,
 .js #intro .contact-methods > * {
-  animation: rise-in 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: rise-in var(--dur-slow) var(--ease-out) both;
 }
 .js #intro .copy > :nth-child(2) { animation-delay: 70ms; }
 .js #intro .contact-methods > :nth-child(1) { animation-delay: 160ms; }
@@ -171,7 +176,7 @@ html.directory-open {
   height: 36px;
   padding: 0;
   color: var(--muted);
-  transition: color 180ms var(--ease);
+  transition: color var(--dur-fast) var(--ease);
 }
 .directory-trigger {
   display: none;
@@ -232,7 +237,7 @@ html.directory-open {
   min-height: 100%;
 }
 .directory-navigation a {
-  transition: color 180ms var(--ease);
+  transition: color var(--dur-fast) var(--ease);
 }
 .directory-label {
   margin: 0;
@@ -331,18 +336,21 @@ html.directory-open {
   pointer-events: none;
 }
 .directory-preview-card {
+  position: relative;
   aspect-ratio: 8 / 5;
   padding: 6px;
   background: var(--paper);
   border: 1px solid var(--line);
   box-shadow: 0 20px 44px rgb(24 24 23 / 0.16);
   rotate: var(--preview-rotation, -2deg);
-  transition: rotate 440ms var(--ease);
+  transition: rotate var(--dur-base) var(--ease);
 }
 .directory-preview-card img {
+  position: absolute;
+  inset: 6px;
   display: block;
-  width: 100%;
-  height: 100%;
+  width: calc(100% - 12px);
+  height: calc(100% - 12px);
   object-fit: cover;
 }
 .directory-preview-caption {
@@ -400,7 +408,7 @@ main {
   width: 100%;
   height: 100%;
   opacity: 0;
-  transition: opacity 160ms ease-out;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 [data-fluid-ready="true"] .intro-fluid canvas {
   opacity: 1;
@@ -448,7 +456,7 @@ main {
   width: 0.8em;
   height: 0.8em;
   color: var(--muted);
-  transition: color 260ms var(--ease), translate 260ms var(--ease);
+  transition: color var(--dur-fast) var(--ease), translate var(--dur-fast) var(--ease);
 }
 .intro-list li:hover .tag-icon {
   color: var(--brand, var(--accent));
@@ -468,7 +476,7 @@ main {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
-  transition: color 200ms var(--ease);
+  transition: color var(--dur-fast) var(--ease);
 }
 .intro-scroll:hover {
   color: var(--ink);
@@ -483,7 +491,7 @@ main {
   30% { translate: 0 5px; }
 }
 .js #intro .intro-scroll {
-  animation: rise-in 900ms cubic-bezier(0.22, 1, 0.36, 1) 520ms both;
+  animation: rise-in var(--dur-slow) var(--ease-out) 520ms both;
 }
 @media (min-width: 768px) {
   /* 标题固定三行：Windows 等无 SF Pro 的系统用 Arial 时会宽出几像素 */
@@ -522,7 +530,7 @@ main {
   font-size: clamp(44px, 4.5vw, 74px);
 }
 .project-copy h2 a {
-  transition: color 200ms;
+  transition: color var(--dur-fast);
 }
 .project-copy h2 a:hover {
   color: var(--accent);
@@ -546,7 +554,7 @@ main {
 }
 .project-copy,
 .story-tabs {
-  transition: transform 440ms var(--ease), opacity 440ms var(--ease);
+  transition: transform var(--dur-base) var(--ease), opacity var(--dur-base) var(--ease);
 }
 .project-page.is-detail-open .project-copy,
 .project-page.is-detail-open .story-tabs {
@@ -579,9 +587,9 @@ main {
   opacity: 0.96;
   transform: rotate(var(--rotation));
   transition:
-    transform 260ms var(--ease),
-    box-shadow 260ms var(--ease),
-    opacity 260ms var(--ease);
+    transform var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease),
+    opacity var(--dur-fast) var(--ease);
 }
 .shot-card img {
   object-fit: cover;
@@ -596,7 +604,7 @@ main {
 .project-gallery.is-preview-open .shot-card {
   opacity: 0;
   transform: translateY(48px) rotate(var(--rotation, 0deg)) scale(0.96);
-  transition: transform 440ms var(--ease), opacity 440ms var(--ease);
+  transition: transform var(--dur-base) var(--ease), opacity var(--dur-base) var(--ease);
   pointer-events: none;
 }
 .project-gallery.is-preview-open .shot-card.is-selected {
@@ -653,11 +661,11 @@ main {
   object-fit: contain;
 }
 .preview-frame .preview-thumb {
-  transition: opacity 320ms ease-in-out;
+  transition: opacity var(--dur-base) var(--ease-out);
 }
 .preview-full {
   opacity: 0;
-  transition: opacity 320ms ease-in-out;
+  transition: opacity var(--dur-base) var(--ease-out);
 }
 .project-gallery.is-preview-ready .preview-thumb {
   opacity: 0;
@@ -681,8 +689,8 @@ main {
   font-size: 22px;
   line-height: 1;
   transition:
-    border-color 200ms,
-    color 200ms;
+    border-color var(--dur-fast),
+    color var(--dur-fast);
 }
 .preview-close:hover {
   color: var(--accent);
@@ -769,7 +777,7 @@ main {
   font-size: 11px;
   letter-spacing: 0.04em;
   text-align: center;
-  transition: color 200ms var(--ease), border-color 200ms var(--ease), background 200ms var(--ease);
+  transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
 }
 .story-tabs button:hover,
 .story-tabs button:focus-visible {
@@ -884,7 +892,7 @@ main {
   font-size: 12px;
   color: var(--ink);
   border-bottom: 1px solid var(--ink);
-  transition: color 180ms var(--ease), border-color 180ms var(--ease);
+  transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
 }
 .credits-links .link-arrow {
   font-size: 21px;
