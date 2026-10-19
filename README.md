@@ -43,3 +43,37 @@ Git 只管理源码、配置和说明，不管理图片文件（包括 SVG 图�
 素材命名统一为 `项目名_内容分类_说明.扩展名`；文件名变化必须同步图片清单、静态备用图与同名 WebP 缩略图。2026-10-09 的旧名、新名和 SHA-256 对照见 [素材重命名对照表](docs/asset-renames-2026-10-09.csv)。原图与已有缩略图仅重命名，内容保持不变；自动生成的汽车研究图表保留脚本的序号命名；QuantChain 演示稿保留 slide-XX 页码命名，以便核对选图。
 
 联系页末尾沿用原“回到序言”的链接样式，致谢实际使用的 ASCII Fluid 背景组件、Lucide 图标及 Cloudflare Workers 静态资源服务，链接指向官方文档，并在新标签页打开。
+
+
+<!-- archive-preparation:2026-10-14:start -->
+## 使用与归档说明（2026-10-14）
+
+my-site/public 是作品展示网站，包含项目介绍、图表与图片放大交互，使用 Wrangler 配置本地预览与发布。源图与网页展示资源分开放置。
+
+### 结构与入口
+
+- `README.md`：页面、素材恢复与预览说明。
+- [my-site/package.json](my-site/package.json)：本地预览脚本。
+- [my-site/wrangler.jsonc](my-site/wrangler.jsonc)：网站配置。
+- [scripts/build_thumbnails.py](scripts/build_thumbnails.py)：缩略图生成。
+- [scripts/build_auto_figures.py](scripts/build_auto_figures.py)：研究汇总图生成。
+- [docs/auto-figures.md](docs/auto-figures.md)：图表口径。
+
+### 使用前提
+
+先按原 README 恢复 my-site/public/assets/；在 my-site 执行 npm ci、npm run dev 进行本地预览。缩略图脚本需 Pillow，研究图脚本需 openpyxl 和外部 AUTO_RESEARCH_PROJECT 数据；外部研究原件不在本目录。本轮未执行部署。
+
+### 归档分工
+
+**GitHub：** my-site 中 HTML / CSS / JavaScript、Wrangler 配置、依赖锁文件、scripts 和 docs，保留 Lucide 许可证。
+
+**夸克网盘：** 审核后的 my-site/public/assets/ 可作必需配套素材包；assets-source/ 原图、证书、照片另作私人备份，检查展示与再分发权限后再选入分享包。
+
+### 当前限制
+
+现有 Git 忽略 public/assets，克隆后需资源还原；网页运行需要的图片不能只留下空目录。根目录未见独立项目许可证，发布前由作者决定。
+
+本次仅完成本地结构、关键入口与依赖检查，以及 README 准备，未验证全部运行功能。本轮未创建 GitHub 仓库或夸克分享链接，也未上传本次归档；后续归档须经目录所有者批准。
+
+作者自有内容尚未统一选择开源许可证；第三方源码和资源沿用原许可，目录内出现的第三方许可证不自动覆盖其他文件。
+<!-- archive-preparation:2026-10-14:end -->
