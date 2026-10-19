@@ -377,13 +377,14 @@ const galleries = {
   cryptoFactor: {
     directory: "cryptoFactor", kind: "截图",
     images: [
-      {"file": "CryptoFactor_代币分类_经济功能分析.png", "label": "代币分类 · 经济功能分析", "position": [3, 4, -4]},
-      {"file": "CryptoFactor_方法论_因子构建框架.png", "label": "方法论 · 因子构建框架", "position": [30, 5, 3]},
-      {"file": "CryptoFactor_数据下载_公共数据文件.png", "label": "数据下载 · 公共数据文件", "position": [16, 21, -2]},
-      {"file": "CryptoFactor_因子详情_关系网络图.png", "label": "因子详情 · 关系网络图", "position": [1, 38, 3]},
-      {"file": "CryptoFactor_因子详情_活跃地址价值因子.png", "label": "因子详情 · 活跃地址价值因子", "position": [32, 40, -4]},
-      {"file": "CryptoFactor_因子详情_相关性矩阵.png", "label": "因子详情 · 相关性矩阵", "position": [18, 62, 2]},
-      {"file": "CryptoFactor_首页_因子数据库概览.png", "label": "首页 · 因子数据库概览", "position": [17, 42, -1]},
+      {"file": "CryptoFactor_市场概览_代币经济功能.png", "label": "市场概览 · 代币经济功能", "position": [2, 3, -4]},
+      {"file": "CryptoFactor_论文_来源论文与因子.png", "label": "论文 · 来源论文与因子", "position": [30, 1, 4]},
+      {"file": "CryptoFactor_方法论_每周构建流程.png", "label": "方法论 · 每周构建流程", "position": [15, 15, -2]},
+      {"file": "CryptoFactor_数据下载_因子数据包.png", "label": "数据下载 · 因子数据包", "position": [1, 49, 3]},
+      {"file": "CryptoFactor_因子详情_活跃地址价值因子.png", "label": "因子详情 · 活跃地址价值因子", "position": [34, 32, 3]},
+      {"file": "CryptoFactor_总览_八因子周收益.png", "label": "总览 · 八因子周收益", "position": [8, 65, -3]},
+      {"file": "CryptoFactor_因子目录_市场因子MKT.png", "label": "因子目录 · 市场因子 MKT", "position": [31, 59, 4]},
+      {"file": "CryptoFactor_首页_周度因子库.png", "label": "首页 · 周度因子库", "position": [17, 36, -1], "layer": 9},
     ]
   },
   studyJourney: {
