@@ -6,12 +6,13 @@
   <meta name="theme-color" content="#f3f3ef">
   <meta name="description" content="数字金融、设计与 AI 的个人网站，展示数据研究、产品设计与视觉小说制作。">
   <title>folio. / 个人作品集</title>
-  <!-- Lucide CodeXml; license: vendor/lucide-LICENSE.txt -->
+  <!-- Lucide CodeXml; license: vendor/lucide-LICENSE.txt. Lenis; license: vendor/lenis-LICENSE.txt -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23232322' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m18 16 4-4-4-4'/%3E%3Cpath d='m6 8-4 4 4 4'/%3E%3Cpath d='m14.5 4-5 16'/%3E%3C/svg%3E">
   <script>document.documentElement.classList.add('js');</script>
   <link rel="stylesheet" href="style.css">
   <link rel="modulepreload" href="intro.js">
   <link rel="modulepreload" href="vendor/ascii-fluid.js">
+  <link rel="modulepreload" href="vendor/lenis.mjs">
   <script type="module" src="app.js"></script>
   <script type="module" src="intro.js"></script>
 </head>
@@ -20,7 +21,7 @@
   <button class="directory-trigger" type="button" aria-label="目录页" aria-haspopup="dialog" aria-expanded="false" aria-controls="site-directory">
     <span data-icon="list" aria-hidden="true"></span>
   </button>
-  <dialog class="directory-page" id="site-directory" aria-labelledby="directory-title" data-fluid>
+  <dialog class="directory-page" id="site-directory" aria-labelledby="directory-title" data-fluid data-lenis-prevent>
     <div class="intro-fluid" aria-hidden="true"><canvas id="directory-fluid"></canvas></div>
     <button class="directory-close" type="button" aria-label="返回页面"><span data-icon="x" aria-hidden="true"></span></button>
     <h2 class="sr-only" id="directory-title" tabindex="-1">网站目录</h2>

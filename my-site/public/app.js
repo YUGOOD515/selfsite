@@ -1,4 +1,5 @@
 import { icon } from './icons.js';
+import Lenis from './vendor/lenis.mjs';
 
 const pages = [...document.querySelectorAll('.page')];
 const projectPages = pages.filter(page => page.classList.contains('project-page'));
@@ -9,14 +10,54 @@ const directoryContent = contents.querySelector('.page-grid');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let current = Math.max(0, pages.findIndex(page => `#${page.id}` === location.hash));
 let scrollFrame = 0;
-let wheelGesture = false;
-let wheelIdleTimer = 0;
-let wheelInputMode = null;
-let navigatingTo = null;
+let lenis = null;
 let contentsAnimation = null;
 let directoryClosePromise = null;
 let directoryOrigin = current;
 let directoryReturnFocus = null;
+
+// 与 CryptoFactor 一致的阻尼滚动：滚轮由 Lenis 平滑，触屏保持原生惯性。
+const scrollEase = t => 1 - (1 - t) ** 4;
+function syncSmoothScroll() {
+  if (reducedMotion.matches) {
+    lenis?.destroy();
+    lenis = null;
+    return;
+  }
+  if (lenis) return;
+  lenis = new Lenis({ lerp: 0.12, smoothWheel: true, anchors: false, autoRaf: true });
+  lenis.on('scroll', scheduleSoftSnap);
+}
+
+// 轻吸附：停下时若离某页顶部足够近，就缓慢吸过去；离得远则停在原处。
+let snapTimer = 0;
+let touching = false;
+window.addEventListener('touchstart', () => { touching = true; clearTimeout(snapTimer); }, { passive: true });
+window.addEventListener('touchend', () => { touching = false; scheduleSoftSnap(); }, { passive: true });
+window.addEventListener('touchcancel', () => { touching = false; }, { passive: true });
+function scheduleSoftSnap() {
+  clearTimeout(snapTimer);
+  snapTimer = setTimeout(softSnap, 160);
+}
+function softSnap() {
+  if (!lenis || lenis.isStopped || touching || contentsPanel.open) return;
+  if (document.querySelector('.project-gallery.is-preview-open')) return;
+  const y = window.scrollY;
+  const threshold = Math.min(window.innerHeight * 0.18, 180);
+  let nearest = null;
+  for (const page of pages) {
+    const distance = page.offsetTop - y;
+    if (Math.abs(distance) < threshold && (nearest === null || Math.abs(distance) < Math.abs(nearest))) nearest = distance;
+  }
+  if (nearest === null || Math.abs(nearest) < 2) return;
+  lenis.scrollTo(y + nearest, { duration: 0.7, easing: scrollEase });
+}
+syncSmoothScroll();
+
+function scrollToInstant(top) {
+  if (lenis) lenis.scrollTo(top, { immediate: true, force: true });
+  else window.scrollTo({ top, behavior: 'instant' });
+}
 
 function updatePageStatus() {
   document.title = contentsPanel.open ? '目录 / folio.' : `${pages[current].dataset.label.split(' / ')[0]} / folio.`;
@@ -44,15 +85,12 @@ function directoryHiddenTransform() {
 
 function openContents() {
   if (contentsPanel.open || directoryClosePromise) return;
-  window.scrollTo({ top: window.scrollY, behavior: 'instant' });
-  navigatingTo = null;
+  if (lenis) lenis.stop();
+  else window.scrollTo({ top: window.scrollY, behavior: 'instant' });
   updateCurrentPage();
   directoryOrigin = current;
   directoryReturnFocus = document.activeElement;
   closePagePreviews(pages[current]);
-  clearTimeout(wheelIdleTimer);
-  wheelInputMode = null;
-  wheelGesture = false;
   contentsPanel.showModal();
   contentsPanel.scrollTop = 0;
   document.documentElement.classList.add('directory-open');
@@ -84,8 +122,8 @@ function closeContents({ target = directoryOrigin, focusPage = false } = {}) {
   directoryContent.inert = true;
   const incoming = pages[target];
   activatePage(incoming);
-  navigatingTo = null;
-  window.scrollTo({ top: incoming.offsetTop, behavior: 'instant' });
+  lenis?.start();
+  scrollToInstant(incoming.offsetTop);
   current = target;
   updatePageStatus();
 
@@ -146,6 +184,7 @@ contentsPanel.addEventListener('cancel', event => {
   closeContents();
 });
 reducedMotion.addEventListener('change', () => {
+  syncSmoothScroll();
   if (!reducedMotion.matches) return;
   contentsAnimation?.cancel();
   contentsAnimation = null;
@@ -181,15 +220,14 @@ function goTo(target, { focus = false } = {}) {
   const previewHadFocus = closePagePreviews(pages[current]);
   const incoming = pages[target];
   if (location.hash !== `#${incoming.id}`) window.history.pushState(null, '', `#${incoming.id}`);
-  navigatingTo = reducedMotion.matches || Math.abs(incoming.offsetTop - window.scrollY) < 1 ? null : target;
-  incoming.scrollIntoView({ block: 'start', behavior: reducedMotion.matches ? 'instant' : 'smooth' });
+  if (lenis) lenis.scrollTo(incoming, { duration: 1.1, easing: scrollEase });
+  else incoming.scrollIntoView({ block: 'start', behavior: 'instant' });
   if (focus || previewHadFocus) incoming.querySelector('h1,h2').focus({ preventScroll: true });
 }
 
 updatePageStatus();
 
 function updateCurrentPage() {
-  if (navigatingTo !== null && Math.abs(window.scrollY - pages[navigatingTo].offsetTop) < 2) navigatingTo = null;
   const midpoint = window.scrollY + window.innerHeight / 2;
   let visible = 0;
   for (let index = 1; index < pages.length; index += 1) {
@@ -217,51 +255,7 @@ window.addEventListener('hashchange', () => {
   if (target >= 0) goTo(target, { focus: true });
 });
 window.addEventListener('popstate', scheduleCurrentPageUpdate);
-window.addEventListener('scrollend', () => { navigatingTo = null; });
 scheduleCurrentPageUpdate();
-
-function isDiscreteWheel(event) {
-  // WheelEvent has no device type. Keep continuous/fractional input native;
-  // recognize line/page steps and the coarse steps produced by mouse wheels.
-  if (event.deltaMode !== 0) return true;
-  const amount = Math.abs(event.deltaY);
-  if (event.deltaX !== 0 || !Number.isInteger(amount) || amount < 40) return false;
-  const legacyStep = Math.abs(event.wheelDeltaY || event.wheelDelta || 0);
-  if (legacyStep === amount * 3 && amount !== 40) return false;
-  return legacyStep ? legacyStep % 120 === 0 : amount >= 80;
-}
-
-window.addEventListener('wheel', event => {
-  if (contentsPanel.open) return;
-  if (event.ctrlKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
-  const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1);
-  if (!delta) return;
-  wheelInputMode ??= isDiscreteWheel(event) ? 'mouse' : 'continuous';
-  clearTimeout(wheelIdleTimer);
-  wheelIdleTimer = setTimeout(() => { wheelGesture = false; wheelInputMode = null; }, 180);
-  if (wheelInputMode === 'continuous') {
-    // Let the browser own touchpad movement, inertia and the final snap.
-    navigatingTo = null;
-    return;
-  }
-  if (navigatingTo !== null || wheelGesture) {
-    event.preventDefault();
-    return;
-  }
-
-  const page = pages[current];
-  const pageEnd = Math.max(page.offsetTop, page.offsetTop + page.offsetHeight - window.innerHeight);
-  const withinPage = delta > 0
-    ? window.scrollY < pageEnd - 2
-    : window.scrollY > page.offsetTop + 2;
-  if (page.offsetHeight > window.innerHeight + 2 && withinPage) {
-    return;
-  }
-
-  event.preventDefault();
-  wheelGesture = true;
-  goTo(current + Math.sign(delta));
-}, { passive: false });
 
 document.querySelectorAll('a[href^="#"]:not(.skip-link)').forEach(link => {
   link.addEventListener('click', event => {
@@ -748,3 +742,47 @@ storyTabs.forEach((tab, index) => {
     storyTabs[target].focus();
   });
 });
+
+// 滚动浮现：与 CryptoFactor 相同的上浮节奏，每组只播放一次。
+const revealEasing = 'cubic-bezier(.22, 1, .36, 1)';
+function revealGroups(page) {
+  const copy = [...page.querySelectorAll('.copy > *')];
+  const visual = [...page.querySelectorAll(
+    '.visual .contact-methods > *, .visual .site-credits, .story-tabs, .project-gallery:not([hidden]) > .shot-card'
+  )];
+  return [
+    { container: page.querySelector('.copy'), items: copy, offset: 0 },
+    { container: page.querySelector('.visual'), items: visual, offset: 120 },
+  ].filter(group => group.container && group.items.length);
+}
+
+if (!reducedMotion.matches && 'IntersectionObserver' in window) {
+  const pendingGroups = new Map();
+  const revealObserver = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const group = pendingGroups.get(entry.target);
+      if (!group) return;
+      pendingGroups.delete(entry.target);
+      revealObserver.unobserve(entry.target);
+      group.items.forEach((item, index) => {
+        item.classList.remove('reveal-pending');
+        if (reducedMotion.matches) return;
+        item.animate(
+          [{ opacity: 0, translate: '0 28px', offset: 0 }],
+          { duration: 800, delay: group.offset + index * 70, easing: revealEasing, fill: 'backwards' }
+        );
+      });
+    });
+  }, { threshold: 0.12 });
+
+  const foldLine = window.innerHeight * 0.92;
+  pages.filter(page => page.id !== 'intro').forEach(page => {
+    revealGroups(page).forEach(group => {
+      if (group.container.getBoundingClientRect().top < foldLine) return;
+      group.items.forEach(item => item.classList.add('reveal-pending'));
+      pendingGroups.set(group.container, group);
+      revealObserver.observe(group.container);
+    });
+  });
+}
