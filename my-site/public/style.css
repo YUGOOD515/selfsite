@@ -216,66 +216,149 @@ html.directory-open {
   height: auto;
   min-height: calc(100dvh - clamp(60px, 8dvh, 100px) - clamp(90px, 12dvh, 130px));
 }
-.directory-page .directory-navigation {
-  grid-column: 1;
+/* 目录：左侧序言 / 预览 / 联系，右侧编号项目索引 */
+.directory-navigation {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "label main"
+    "intro main"
+    "preview main"
+    "contact main";
+  column-gap: var(--gutter);
+  row-gap: clamp(20px, 3.2dvh, 32px);
   width: 100%;
-  height: auto;
-  padding: 0;
-  align-items: flex-start;
+  min-height: 100%;
 }
-.directory-navigation .directory-sections {
-  width: 100%;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: start;
+.directory-navigation a {
+  transition: color 180ms var(--ease);
 }
-.directory-navigation ul {
+.directory-label {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.directory-index-label {
+  grid-area: label;
+}
+.directory-no {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.directory-name {
+  font-weight: 600;
+}
+.directory-note,
+.directory-category {
+  font-size: 12px;
+  color: var(--muted);
+}
+.directory-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  width: fit-content;
+  max-width: 100%;
+}
+.directory-meta .directory-name {
+  font-size: clamp(18px, 1.5vw, 22px);
+}
+.directory-intro {
+  grid-area: intro;
+}
+.directory-contact {
+  grid-area: contact;
+}
+.directory-main {
+  grid-area: main;
+  align-self: center;
+  min-width: 0;
+}
+.directory-head {
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 14px;
+}
+.directory-projects {
   list-style: none;
   margin: 0;
   padding: 0;
+  border-bottom: 1px solid var(--line);
 }
-.directory-navigation a {
-  width: fit-content;
-  max-width: 100%;
-  transition: color 180ms var(--ease);
-}
-.directory-project-group {
-  min-width: 0;
-  padding-top: 22px;
-}
-.directory-contact-group {
-  padding-top: clamp(24px, 4vh, 40px);
-}
-.directory-projects {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 28px 64px;
-}
-.directory-projects li {
+.directory-row {
   display: grid;
-  flex: 0 0 auto;
-  align-content: start;
-  gap: 6px;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  column-gap: 18px;
+  align-items: baseline;
+  padding: clamp(8px, 1.3dvh, 12px) 0;
+  border-top: 1px solid var(--line);
 }
-.directory-projects li > a,
-.directory-projects .directory-project-subtitle {
-  white-space: nowrap;
+.directory-row .directory-no {
+  grid-row: span 2;
 }
-.directory-navigation .directory-chinese,
-.directory-projects .directory-project-subtitle {
-  font-weight: 600;
+.directory-row .directory-name {
+  font-size: clamp(19px, min(1.7vw, 2.9dvh), 26px);
+  line-height: 1.3;
 }
-.directory-projects .directory-project-subtitle {
-  margin: 0;
-  line-height: 1.5;
+.directory-row .directory-note {
+  grid-column: 2;
+  margin-top: 3px;
 }
-.directory-navigation a:hover,
-.directory-navigation a:focus-visible {
+.directory-row .directory-category {
+  grid-column: 3;
+  grid-row: 1;
+  text-align: right;
+}
+.directory-row .link-arrow,
+.directory-meta .link-arrow {
+  font-size: 0.8em;
+}
+.directory-navigation a:hover .directory-name,
+.directory-navigation a:focus-visible .directory-name,
+.directory-row.is-previewed .directory-name {
   color: var(--accent);
 }
-.directory-navigation a[aria-current="page"]:hover .link-arrow,
-.directory-navigation a[aria-current="page"]:focus-visible .link-arrow {
+.directory-navigation a[aria-current="page"] .directory-no {
+  color: var(--accent);
+}
+.directory-row.is-previewed .link-arrow {
+  transform: translateX(3px);
+}
+.directory-navigation a[aria-current="page"] .link-arrow {
   transform: none;
+}
+.directory-preview {
+  grid-area: preview;
+  align-self: center;
+  justify-self: center;
+  width: min(88%, 600px, 62dvh * 1.6);
+  margin: 0;
+  pointer-events: none;
+}
+.directory-preview-card {
+  aspect-ratio: 8 / 5;
+  padding: 6px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  box-shadow: 0 20px 44px rgb(24 24 23 / 0.16);
+  rotate: var(--preview-rotation, -2deg);
+  transition: rotate 440ms var(--ease);
+}
+.directory-preview-card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.directory-preview-caption {
+  margin-top: 22px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
 }
 /* 画布与双栏布局 */
 main {
@@ -811,6 +894,31 @@ main {
     min-height: calc(100dvh - 130px - env(safe-area-inset-bottom, 0px));
     gap: 32px;
     align-content: center;
+  }
+  .directory-navigation {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    grid-template-areas: "intro" "main" "contact";
+    align-content: center;
+    row-gap: 28px;
+  }
+  .directory-index-label,
+  .directory-preview {
+    display: none;
+  }
+  .directory-row {
+    grid-template-columns: 34px minmax(0, 1fr);
+    column-gap: 10px;
+    padding: 11px 0;
+  }
+  .directory-row .directory-name {
+    font-size: 18px;
+  }
+  .directory-row .directory-note {
+    font-size: 11px;
+  }
+  .directory-row .directory-category {
+    display: none;
   }
   .credits-links a {
     font-size: 11px;

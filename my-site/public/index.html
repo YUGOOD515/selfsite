@@ -26,14 +26,18 @@
     <button class="directory-close" type="button" aria-label="返回页面"><span data-icon="x" aria-hidden="true"></span></button>
     <h2 class="sr-only" id="directory-title" tabindex="-1">网站目录</h2>
     <div class="page-grid">
-      <nav class="visual contact-details directory-navigation" aria-label="网站目录">
-        <div class="contact-methods directory-sections">
-          <div><a class="intro-detail directory-chinese" href="#intro">序言 <span class="link-arrow" data-icon="arrow-right" aria-hidden="true">→</span></a></div>
-          <div class="directory-project-group">
-            <ul class="directory-projects" aria-label="项目"></ul>
-          </div>
-          <div class="directory-contact-group"><a class="intro-detail directory-chinese" href="#contact">联系 <span class="link-arrow" data-icon="arrow-right" aria-hidden="true">→</span></a></div>
+      <nav class="directory-navigation" aria-label="网站目录">
+        <p class="directory-label directory-index-label" lang="en">目录 / Index</p>
+        <a class="directory-meta directory-intro" href="#intro"><span class="directory-no">00</span><span class="directory-name">序言 <span class="link-arrow" data-icon="arrow-right" aria-hidden="true">→</span></span><span class="directory-note" lang="en">Introduction</span></a>
+        <div class="directory-main">
+          <p class="directory-label directory-head" lang="en"><span>项目 Projects</span><span class="directory-count"></span></p>
+          <ol class="directory-projects" aria-label="项目"></ol>
         </div>
+        <figure class="directory-preview" aria-hidden="true">
+          <div class="directory-preview-card"><img alt="" width="960" height="600" decoding="async"></div>
+          <figcaption class="directory-preview-caption"></figcaption>
+        </figure>
+        <a class="directory-meta directory-contact" href="#contact"><span class="directory-no"></span><span class="directory-name">联系 <span class="link-arrow" data-icon="arrow-right" aria-hidden="true">→</span></span><span class="directory-note" lang="en">Gmail · X · GitHub</span></a>
       </nav>
     </div>
   </dialog>
@@ -64,7 +68,7 @@
       </div>
     </section>
 
-    <section class="page project-page" id="verdant" aria-labelledby="verdant-title" data-label="VERDANT / 加密货币数字指纹">
+    <section class="page project-page" id="verdant" data-category="Web3 · 黑客松" aria-labelledby="verdant-title" data-label="VERDANT / 加密货币数字指纹">
       <div class="page-grid">
         <div class="copy project-copy">
           <h2 id="verdant-title" lang="en" tabindex="-1"><a href="https://xjy.ccpcudati.workers.dev/">VERDANT&nbsp;<span class="link-arrow" data-icon="arrow-right" aria-hidden="true">→</span></a></h2>
@@ -77,7 +81,7 @@
       </div>
     </section>
 
-    <section class="page project-page" id="cryptofactor" aria-labelledby="cryptofactor-title" data-label="CryptoFactor / 加密因子">
+    <section class="page project-page" id="cryptofactor" data-category="数据研究 · 全栈" aria-labelledby="cryptofactor-title" data-label="CryptoFactor / 加密因子">
       <div class="page-grid">
         <div class="copy project-copy">
           <h2 id="cryptofactor-title" lang="en" tabindex="-1"><a href="https://crypto-factor.ccpcudati.workers.dev/">Explore crypto factors and research data&nbsp;<span class="link-arrow" data-icon="arrow-right" aria-hidden="true">→</span></a></h2>
@@ -90,7 +94,7 @@
       </div>
     </section>
 
-    <section class="page project-page" id="scent-dialogue" aria-labelledby="scent-dialogue-title" data-label="SCENT DIALOGUE / 香氛体验设计">
+    <section class="page project-page" id="scent-dialogue" data-category="品牌体验设计" aria-labelledby="scent-dialogue-title" data-label="SCENT DIALOGUE / 香氛体验设计">
       <div class="page-grid">
         <div class="copy project-copy">
           <h2 id="scent-dialogue-title" lang="en" tabindex="-1">SCENT DIALOGUE</h2>
@@ -103,7 +107,7 @@
       </div>
     </section>
 
-    <section class="page project-page" id="moviedb" aria-labelledby="moviedb-title" data-label="MovieDB / 影视资料库">
+    <section class="page project-page" id="moviedb" data-category="全栈 · 个人工具" aria-labelledby="moviedb-title" data-label="MovieDB / 影视资料库">
       <div class="page-grid">
         <div class="copy project-copy">
           <h2 id="moviedb-title" lang="en" tabindex="-1">Browse films Track series</h2>
@@ -116,7 +120,7 @@
       </div>
     </section>
 
-    <section class="page project-page" id="studyjourney" aria-labelledby="studyjourney-title" data-label="StudyJourney / 学旅">
+    <section class="page project-page" id="studyjourney" data-category="产品设计" aria-labelledby="studyjourney-title" data-label="StudyJourney / 学旅">
       <div class="page-grid">
         <div class="copy project-copy">
           <h2 id="studyjourney-title" lang="en" tabindex="-1">Plan courses Track progress</h2>
@@ -129,7 +133,7 @@
       </div>
     </section>
 
-    <section class="page project-page" id="quantchain" aria-labelledby="quantchain-title" data-label="QuantChain / 供应链数字化研究">
+    <section class="page project-page" id="quantchain" data-category="学术研究" aria-labelledby="quantchain-title" data-label="QuantChain / 供应链数字化研究">
       <div class="page-grid">
         <div class="copy project-copy">
           <h2 id="quantchain-title" lang="en" tabindex="-1">QuantChain</h2>
@@ -142,7 +146,7 @@
       </div>
     </section>
 
-    <section class="page project-page research-page" id="auto-research" aria-labelledby="auto-research-title" data-label="汽车研究 / Auto Research">
+    <section class="page project-page research-page" id="auto-research" data-category="数据研究 · NLP" aria-labelledby="auto-research-title" data-label="汽车研究 / Auto Research">
       <div class="page-grid">
         <div class="copy project-copy">
           <h2 id="auto-research-title" lang="en" tabindex="-1">Forecasts meet context</h2>
@@ -155,7 +159,7 @@
       </div>
     </section>
 
-    <section class="page project-page story-page" id="fogharbor" aria-labelledby="fogharbor-title" data-label="雾港七日 / Visual Novel">
+    <section class="page project-page story-page" id="fogharbor" data-category="视觉小说" aria-labelledby="fogharbor-title" data-label="雾港七日 / Visual Novel">
       <div class="page-grid">
         <div class="copy project-copy">
           <h2 id="fogharbor-title" lang="en" tabindex="-1">Seven days<br>in the fog</h2>

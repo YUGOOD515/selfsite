@@ -91,6 +91,7 @@ function openContents() {
   directoryOrigin = current;
   directoryReturnFocus = document.activeElement;
   closePagePreviews(pages[current]);
+  prepareDirectory();
   contentsPanel.showModal();
   contentsPanel.scrollTop = 0;
   document.documentElement.classList.add('directory-open');
@@ -150,31 +151,94 @@ function closeContents({ target = directoryOrigin, focusPage = false } = {}) {
   return directoryClosePromise;
 }
 
-projectPages.forEach(page => {
+const pad = number => String(number).padStart(2, '0');
+const directoryList = contents.querySelector('.directory-projects');
+const directoryRows = projectPages.map((page, index) => {
   const item = document.createElement('li');
   const link = document.createElement('a');
-  link.className = 'intro-detail';
+  link.className = 'directory-row';
   link.href = `#${page.id}`;
   const heading = page.querySelector('.project-copy h2').cloneNode(true);
   heading.querySelectorAll('.link-arrow').forEach(arrow => arrow.remove());
   heading.querySelectorAll('br').forEach(lineBreak => lineBreak.replaceWith(' '));
   const projectSubtitle = page.querySelector('.project-subtitle');
-  const title = projectSubtitle.textContent.trim();
-  if (projectSubtitle.lang) link.lang = projectSubtitle.lang;
-  link.classList.toggle('directory-chinese', /[\u3400-\u9fff]/u.test(title));
-  link.append(title);
+
+  const number = document.createElement('span');
+  number.className = 'directory-no';
+  number.textContent = pad(index + 1);
+  const name = document.createElement('span');
+  name.className = 'directory-name';
+  if (projectSubtitle.lang) name.lang = projectSubtitle.lang;
   const arrow = document.createElement('span');
   arrow.className = 'link-arrow';
+  arrow.setAttribute('aria-hidden', 'true');
   arrow.append(icon('arrow-right'));
-  link.append('\u00a0', arrow);
+  name.append(projectSubtitle.textContent.trim(), '\u00a0', arrow);
+  const note = document.createElement('span');
+  note.className = 'directory-note';
+  note.textContent = heading.textContent.replace(/\s+/gu, ' ').trim();
+  if (heading.lang) note.lang = heading.lang;
+  const category = document.createElement('span');
+  category.className = 'directory-category';
+  category.textContent = page.dataset.category || '';
+
+  link.append(number, name, note, category);
   item.append(link);
-  const subtitle = document.createElement('p');
-  subtitle.className = 'contact-label directory-project-subtitle';
-  subtitle.textContent = heading.textContent.replace(/\s+/gu, ' ').trim();
-  if (heading.lang) subtitle.lang = heading.lang;
-  item.append(subtitle);
-  contents.querySelector('.directory-projects').append(item);
+  directoryList.append(item);
+  link.addEventListener('pointerenter', () => showDirectoryPreview(index));
+  link.addEventListener('focus', () => showDirectoryPreview(index));
+  return link;
 });
+contents.querySelector('.directory-count').textContent = pad(projectPages.length);
+contents.querySelector('.directory-contact .directory-no').textContent = pad(projectPages.length + 1);
+
+// 目录左侧的截图预览：悬停或聚焦哪个项目就显示哪个。
+const directoryPreview = contents.querySelector('.directory-preview');
+const directoryPreviewImage = directoryPreview.querySelector('img');
+const directoryPreviewCaption = directoryPreview.querySelector('figcaption');
+let directoryPreviewIndex = -1;
+function previewSource(page) {
+  const image = page.querySelector('.project-gallery:not([hidden]) .shot-card img');
+  return image ? image.dataset.src || image.getAttribute('src') : '';
+}
+function showDirectoryPreview(index, { animate = true } = {}) {
+  if (index === directoryPreviewIndex) return;
+  const page = projectPages[index];
+  const source = previewSource(page);
+  if (!source) return;
+  directoryPreviewIndex = index;
+  directoryRows.forEach((row, rowIndex) => row.classList.toggle('is-previewed', rowIndex === index));
+  directoryPreviewImage.src = source;
+  directoryPreview.style.setProperty('--preview-rotation', `${index % 2 ? 1.6 : -2}deg`);
+  directoryPreviewCaption.textContent = [page.querySelector('.project-subtitle').textContent.trim(), page.dataset.category]
+    .filter(Boolean).join(' · ');
+  if (animate && !reducedMotion.matches) {
+    directoryPreview.animate(
+      [{ opacity: 0, translate: '0 14px', offset: 0 }],
+      { duration: 420, easing: 'cubic-bezier(.22, 1, .36, 1)' }
+    );
+  }
+}
+function prepareDirectory() {
+  projectPages.forEach(page => {
+    const source = previewSource(page);
+    if (source) new Image().src = source;
+  });
+  const currentProject = projectPages.indexOf(pages[current]);
+  directoryPreviewIndex = -1;
+  showDirectoryPreview(Math.max(0, currentProject), { animate: false });
+  if (reducedMotion.matches) return;
+  const items = [
+    ...contents.querySelectorAll('.directory-index-label, .directory-intro, .directory-head'),
+    ...directoryRows,
+    directoryPreview,
+    contents.querySelector('.directory-contact'),
+  ];
+  items.forEach((item, index) => item.animate(
+    [{ opacity: 0, translate: '0 18px', offset: 0 }],
+    { duration: 640, delay: 180 + index * 35, easing: 'cubic-bezier(.22, 1, .36, 1)', fill: 'backwards' }
+  ));
+}
 document.querySelectorAll('[data-icon]').forEach(element => element.replaceChildren(icon(element.dataset.icon)));
 
 contentsToggle.addEventListener('click', openContents);
