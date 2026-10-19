@@ -178,11 +178,7 @@ const directoryRows = projectPages.map((page, index) => {
   note.className = 'directory-note';
   note.textContent = heading.textContent.replace(/\s+/gu, ' ').trim();
   if (heading.lang) note.lang = heading.lang;
-  const category = document.createElement('span');
-  category.className = 'directory-category';
-  category.textContent = page.dataset.category || '';
-
-  link.append(number, name, note, category);
+  link.append(number, name, note);
   item.append(link);
   directoryList.append(item);
   link.addEventListener('pointerenter', () => showDirectoryPreview(index));
@@ -190,7 +186,6 @@ const directoryRows = projectPages.map((page, index) => {
   return link;
 });
 contents.querySelector('.directory-count').textContent = pad(projectPages.length);
-contents.querySelector('.directory-contact .directory-no').textContent = pad(projectPages.length + 1);
 
 // 目录左侧的截图预览：悬停或聚焦哪个项目就显示哪个。
 const directoryPreview = contents.querySelector('.directory-preview');
