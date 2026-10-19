@@ -660,15 +660,14 @@ main {
   height: calc(100% - 12px);
   object-fit: contain;
 }
-.preview-frame .preview-thumb {
-  transition: opacity var(--dur-base) var(--ease-out);
-}
+/* 原图在缩略图之上淡入；缩略图保持不透明垫底，等原图完全显示后再隐藏，避免中途透出底色而“闪一下” */
 .preview-full {
   opacity: 0;
   transition: opacity var(--dur-base) var(--ease-out);
 }
 .project-gallery.is-preview-ready .preview-thumb {
   opacity: 0;
+  transition: opacity 0s linear var(--dur-base);
 }
 .project-gallery.is-preview-ready .preview-full {
   opacity: 1;
@@ -808,6 +807,12 @@ main {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: 9px;
+}
+/* 桌面端立绘网格不按图片原始高度撑开面板，只填满分到的空间，切换标签时左侧文字不再移动 */
+@media (min-width: 768px) {
+  .story-portraits {
+    contain: size;
+  }
 }
 .story-portraits .shot-card {
   position: relative;
