@@ -366,7 +366,7 @@ const galleries = {
       {"file": "MovieDB_媒体资源管理_剧集文件关联.png", "label": "媒体资源管理 · 剧集文件关联", "position": [17, 49, 2]},
       {"file": "MovieDB_影视详情_Pluribus.png", "label": "影视详情 · Pluribus", "position": [3, 63, -3]},
       {"file": "MovieDB_影视详情_百年孤独_演员与信息.png", "label": "影视详情 · 百年孤独 · 演员与信息", "position": [33, 61, 4]},
-      {"file": "MovieDB_首页_最近观看与最近添加.png", "label": "首页 · 最近观看与最近添加", "position": [18, 42, -1]},
+      {"file": "MovieDB_首页_精选轮播.png", "label": "首页 · 精选轮播", "position": [18, 42, -1]},
     ]
   },
   cryptoFactor: {
