@@ -2,14 +2,18 @@
 // 每页一个作品，淡、柔、无边界（遮罩与透明度见 style.css，手机端放在右上角留白）。
 // 渲染：作品在 JS 里算字符画，网点交给 WebGL 按原始分辨率画（ambient-gl.js），
 // 与首尾页的流体背景一样主要在显卡上完成；不支持 WebGL 时退回 canvas 播放器。
-// 节流：接近视口才导入，只播放视口内的那一页，远离时释放画布，减少动态效果时停在首帧。
+// 调度：当前页和上下相邻页一起播放（最多三个），共用一个 rAF，每个 tick 最多算一个作品的一帧，
+// 把开销错开；相邻页离屏时只推进动画、不画，用半速。两帧之间在显卡上插值，看起来比 15fps 更连贯。
+// 起停都按速度缓动（约 0.6 秒），不会瞬间开始或停住；远离时释放画布，减少动态效果时缓停。
 import { createDotRenderer, toneOf } from './ambient-gl.js';
 
 const CELL_W = 0.602; // 等宽字符宽度 / 字号，与 runtime/canvas.js 一致
 const DENSITY = 1.31; // 每格网点数（沿短边），与 paintTone 一致
 const SPEED = 0.4; // 播放速度：放慢成"呼吸"
 const desktop = matchMedia('(min-width: 768px)');
-const maxFps = () => (desktop.matches ? 15 : 12); // 慢速动画下已足够顺滑，手机再省一点
+const maxFps = () => (desktop.matches ? 15 : 12); // 作品计算帧率：慢速动画下已足够，手机再省一点
+const DRAW_FPS = 30; // 显卡插值绘制帧率
+const EASE = 0.4; // 起停缓动时间常数（秒），约 1 秒内平滑到位
 const dark = matchMedia('(prefers-color-scheme: dark)');
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -33,6 +37,26 @@ async function mount(layer) {
   requestAnimationFrame(() => layer.classList.add('is-ready'));
 }
 
+// 共用调度：一个 rAF 驱动所有播放中的作品
+const players = new Set();
+let raf = 0, prevNow = 0;
+const wake = () => { if (!raf) { prevNow = 0; raf = requestAnimationFrame(tick); } };
+function tick(now) {
+  raf = 0;
+  const dt = prevNow ? Math.min(0.1, (now - prevNow) / 1000) : 0;
+  prevNow = now;
+  let due = null, best = 0;
+  for (const p of players) {
+    p.ease(dt);
+    const late = p.lateness(now);
+    if (late > best) { best = late; due = p; }
+  }
+  if (due) due.compute(now); // 每个 tick 最多算一帧，几个作品错开
+  for (const p of players) p.present(now);
+  for (const p of players) if (!p.busy()) players.delete(p);
+  if (players.size) { raf = requestAnimationFrame(tick); } else prevNow = 0;
+}
+
 function mountGL(layer, mod) {
   const canvas = document.createElement('canvas');
   canvas.className = 'ambient-gl';
@@ -43,12 +67,16 @@ function mountGL(layer, mod) {
 
   const { cols, rows, cell, fps = 24 } = mod.meta;
   const draw = mod.default();
-  const tone = new Uint8Array(cols * rows);
+  let prevTone = new Uint8Array(cols * rows);
+  let nextTone = new Uint8Array(cols * rows);
   const vals = new Float32Array(cols * rows);
   let geo = null;
   let elapsed = 0;
-  let near = false; // 接近视口：持有画布
-  let active = false; // 在视口内：播放
+  let near = false; // 当前页或相邻页：持有画布、播放
+  let visible = false; // 在视口内：绘制
+  let speed = 0; // 0–1，起停缓动
+  let frames = 0; // 已算帧数
+  let lastCompute = 0, interval = 1, lastDraw = 0, dirty = false, settled = true;
 
   const layout = () => {
     const width = layer.clientWidth;
@@ -65,54 +93,91 @@ function mountGL(layer, mod) {
       dpr, unit, step: unit / DENSITY,
       w: cols * cw, h: rows * ch,
       ox: (width - cols * cw) / 2, oy: (height - rows * ch) / 2,
-      soft: cssNumber(layer, '--ambient-soft', 1),
+      soft: cssNumber(layer, '--ambient-soft', 0),
       ink: inkOf(layer),
     };
     const W = Math.round(width * dpr), H = Math.round(height * dpr);
     if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+    dirty = true;
     return true;
   };
-  const render = () => {
-    if (!geo) return;
+  // 算一帧：新帧放到 next，旧的 next 变成 prev
+  const step = () => {
     const f = draw(elapsed);
-    toneOf(f, f.palette || mod.meta.palette, cols, rows, tone, vals);
-    gl.draw(tone, cols, rows, geo);
+    [prevTone, nextTone] = [nextTone, prevTone];
+    toneOf(f, f.palette || mod.meta.palette, cols, rows, nextTone, vals);
+    if (!frames++) prevTone.set(nextTone);
+    gl.frames(prevTone, nextTone, cols, rows);
   };
-  const release = () => { canvas.width = 1; canvas.height = 1; geo = null; };
-  const refresh = () => { if (near && layout()) render(); };
+  const mixAt = now => (settled ? 1 : Math.min(1, (now - lastCompute) / interval));
+  let lastMix = -1;
+  const paint = now => {
+    if (!geo || !visible) return;
+    const m = mixAt(now);
+    if (!dirty && m === lastMix) return; // 画面没变就不画
+    gl.draw(m, geo);
+    lastDraw = now; lastMix = m; dirty = false;
+  };
+  const target = () => (near && !reduce.matches && !mod.meta.still && !gl.lost && !document.hidden ? 1 : 0);
+  // 计算间隔：基础帧率 ×（离屏半速）÷ 当前速度；速度降到 0 时自然不再算
+  const baseInterval = () => (1000 / Math.min(fps, maxFps())) * (visible ? 1 : 2);
 
-  // 播放循环：只在 active 时跑，按 maxFps 节流
-  let raf = 0, prev = 0, last = 0;
-  const loop = now => {
-    raf = requestAnimationFrame(loop);
-    if (prev) elapsed += ((now - prev) / 1000) * SPEED;
-    prev = now;
-    const step = 1000 / Math.min(fps, maxFps());
-    if (now - last < step) return;
-    last = now - ((now - last) % step);
-    render();
+  const player = {
+    ease(dt) {
+      const t = target();
+      speed += (t - speed) * (1 - Math.exp(-dt / EASE));
+      if (Math.abs(t - speed) < 0.01) speed = t;
+      elapsed += dt * SPEED * speed;
+    },
+    lateness(now) {
+      if (!geo || speed <= 0) return 0;
+      const late = (now - lastCompute) / (baseInterval() / speed);
+      return late >= 0.92 ? late : 0; // 留一点余量，免得 60Hz 的 tick 让帧率掉一档
+    },
+    compute(now) {
+      interval = Math.min(1000, baseInterval() / Math.max(speed, 0.05));
+      lastCompute = now;
+      settled = false;
+      step();
+    },
+    present(now) {
+      // 已停下且最后一帧插值走完：定格
+      if (!settled && speed <= 0 && now - lastCompute >= interval) { settled = true; dirty = true; }
+      if (visible && (dirty || now - lastDraw >= 1000 / DRAW_FPS - 2)) paint(now);
+    },
+    busy() { return !!geo && (speed > 0 || target() > 0 || !settled || (dirty && visible)); },
   };
-  const sync = () => {
-    const run = active && near && !reduce.matches && !mod.meta.still && !gl.lost;
-    if (run && !raf) { prev = 0; raf = requestAnimationFrame(loop); }
-    if (!run && raf) { cancelAnimationFrame(raf); raf = 0; }
+  const start = () => { if (geo && (target() > 0 || speed > 0 || dirty)) { players.add(player); wake(); } };
+  const refresh = () => {
+    if (!near || !layout()) return;
+    if (!frames) { step(); lastCompute = performance.now(); } // 首帧：先画出静止画面，再缓动起播
+    dirty = true;
+    paint(performance.now());
+    start();
   };
+  const release = () => { canvas.width = 1; canvas.height = 1; geo = null; speed = 0; settled = true; players.delete(player); };
 
   new IntersectionObserver(([entry]) => {
     const next = entry.isIntersecting;
     if (next && !near) { near = true; refresh(); }
     if (!next && near) { near = false; release(); }
-    sync();
   }, { rootMargin: '100% 0px' }).observe(layer);
+  // 相邻页贴着视口边缘时 isIntersecting 也为 true，要看实际露出的比例
   new IntersectionObserver(([entry]) => {
-    active = entry.isIntersecting && entry.intersectionRatio >= 0.01;
-    sync();
-  }, { threshold: [0, 0.01] }).observe(layer);
+    visible = entry.isIntersecting && entry.intersectionRatio > 0;
+    if (visible) { dirty = true; start(); }
+  }, { threshold: [0, 0.001] }).observe(layer);
   new ResizeObserver(refresh).observe(layer);
   dark.addEventListener('change', refresh); // 深浅色切换后重新取墨色
-  reduce.addEventListener('change', sync);
-  canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); sync(); });
-  canvas.addEventListener('webglcontextrestored', () => { gl = createDotRenderer(canvas) || gl; refresh(); sync(); });
+  reduce.addEventListener('change', start); // 打开减少动态效果：缓停；关闭：缓动起播
+  document.addEventListener('visibilitychange', start);
+  canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); });
+  canvas.addEventListener('webglcontextrestored', () => {
+    gl = createDotRenderer(canvas) || gl;
+    if (frames) gl.frames(prevTone, nextTone, cols, rows);
+    dirty = true;
+    refresh();
+  });
   return true;
 }
 
