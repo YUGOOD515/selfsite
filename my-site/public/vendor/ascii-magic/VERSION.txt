@@ -1,0 +1,1 @@
+ascii-magic-art 1.0.2 @ de88962 (github.com/kailashsr38/ascii-magic-art), MIT. Only runtime/player.js, glyphs.js, canvas.js, lib/kit.js and the pieces in pieces/ are included.
