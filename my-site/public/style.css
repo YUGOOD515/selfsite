@@ -384,6 +384,48 @@ main {
   min-height: 0;
 }
 /* 页面内容 */
+/* 作品页背景氛围（ASCII Magic Art）：淡、糊、无边界 */
+.project-page:has(.project-ambient) {
+  isolation: isolate;
+}
+.project-ambient {
+  --ambient-x: 78%;
+  --ambient-y: 50%;
+  --ambient-scale: 1;
+  --ambient-blur: 3px;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  color: var(--ink);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1600ms var(--ease);
+  -webkit-mask-image: radial-gradient(ellipse 46% 62% at var(--ambient-x) var(--ambient-y), #000 0%, rgb(0 0 0 / 0.45) 50%, transparent 100%);
+  mask-image: radial-gradient(ellipse 46% 62% at var(--ambient-x) var(--ambient-y), #000 0%, rgb(0 0 0 / 0.45) 50%, transparent 100%);
+}
+.project-ambient.is-ready {
+  opacity: 0.13;
+}
+.ambient-inner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max-content;
+  transform: translate(-50%, -50%) scale(var(--ambient-scale));
+  filter: blur(var(--ambient-blur));
+}
+.ambient-inner pre {
+  margin: 0;
+}
+#cryptofactor .project-ambient {
+  --ambient-x: 70%;
+  --ambient-y: 78%;
+}
+#fogharbor .project-ambient {
+  --ambient-x: 64%;
+  --ambient-y: 92%;
+}
 [data-fluid] {
   isolation: isolate;
 }
@@ -543,30 +585,6 @@ main {
   max-width: 34em;
   font-size: 14px;
   line-height: 1.9;
-}
-/* ASCII 签名：放在正文下方 */
-.project-ascii {
-  position: relative;
-  width: 100%;
-  max-width: 34em;
-  height: 120px;
-  margin-top: 28px;
-  overflow: hidden;
-  color: var(--accent);
-  font-size: 14px;
-  pointer-events: none;
-}
-.project-ascii pre {
-  margin: 0;
-  font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
-}
-.project-ascii canvas {
-  display: block;
-  opacity: 0;
-  transition: opacity 900ms var(--ease);
-}
-.project-ascii.is-ready canvas {
-  opacity: 0.82;
 }
 .project-copy,
 .story-tabs {
@@ -938,10 +956,6 @@ main {
   .body-copy {
     margin-top: 15px;
   }
-  .project-ascii {
-    height: 88px;
-    margin-top: 20px;
-  }
   .contact-details {
     gap: 30px;
   }
@@ -1058,9 +1072,8 @@ main {
   .project-copy .body-copy {
     font-size: 12px;
   }
-  .project-ascii {
-    height: 68px;
-    margin-top: 18px;
+  .project-ambient {
+    display: none;
   }
   .project-gallery {
     min-height: 380px;
@@ -1133,6 +1146,9 @@ main {
   }
   .intro-fluid {
     opacity: 0.18;
+  }
+  .project-ambient.is-ready {
+    opacity: 0.1;
   }
 }
 @media (prefers-reduced-motion: reduce) {
