@@ -391,7 +391,7 @@ main {
 .project-ambient {
   --ambient-x: 78%;
   --ambient-y: 50%;
-  --ambient-soft: 1.2; /* 网点边缘柔化（CSS 像素，WebGL 渲染） */
+  --ambient-soft: 0; /* 网点边缘柔化（CSS 像素，WebGL 渲染） */
   --ambient-cell: 6; /* 以下两项只用于不支持 WebGL 时的退路：每格物理像素 */
   --ambient-blur: 3px; /* 退路的视觉模糊半径 */
   position: absolute;
