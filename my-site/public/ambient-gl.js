@@ -11,7 +11,9 @@ void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }
 `;
 const FRAG = `
 precision highp float;
-uniform sampler2D u_tone;
+uniform sampler2D u_prev; // 上一帧亮度
+uniform sampler2D u_next; // 当前帧亮度
+uniform float u_mix;      // 两帧之间的插值，让 15fps 的作品看起来更连贯
 uniform vec2 u_res;     // 画布物理像素
 uniform float u_dpr;
 uniform vec2 u_origin;  // 作品左上角（CSS 像素）
@@ -28,7 +30,7 @@ float dotAt(vec2 p, vec2 id, float aa) {
   vec2 c = (id + 0.5) * u_step;
   vec2 uv = c / u_size;
   if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return 0.0;
-  float x = texture2D(u_tone, uv).r * 4.0 - 0.5;
+  float x = mix(texture2D(u_prev, uv).r, texture2D(u_next, uv).r, u_mix) * 4.0 - 0.5;
   float lvl = floor(x);
   if (x - lvl > bayer4(id) + 0.03125) lvl += 1.0;
   if (lvl < 0.0) return 0.0;
@@ -71,8 +73,9 @@ const lum = hex => {
   return v;
 };
 
-/** 一帧字符画 → 每格网点亮度（0–255），与 paintTone 的归一方式一致。 */
-export function toneOf(frame, palette, cols, rows, out, vals) {
+/** 一帧字符画 → 每格网点亮度（0–255），与 paintTone 的归一方式一致。
+ *  win（可选）：[c0, r0, c1, r1]，只按这块（图层里看得见的部分）取百分位。 */
+export function toneOf(frame, palette, cols, rows, out, vals, win) {
   const text = typeof frame === 'string' ? frame : frame.text;
   const color = typeof frame === 'string' ? null : frame.color;
   const T = text.split('\n');
@@ -99,7 +102,11 @@ export function toneOf(frame, palette, cols, rows, out, vals) {
   // 4% / 98.5% 百分位做黑白点，曲线 1.1
   const HB = 256, hist = new Uint32Array(HB);
   let n = 0;
-  for (let i = 0; i < vals.length; i++) if (vals[i] >= 0) { hist[Math.min(HB - 1, Math.floor((vals[i] / (vmax || 1)) * HB))]++; n++; }
+  const [c0, r0, c1, r1] = win || [0, 0, cols, rows];
+  for (let r = r0; r < r1; r++) for (let c = c0; c < c1; c++) {
+    const v = vals[r * cols + c];
+    if (v >= 0) { hist[Math.min(HB - 1, Math.floor((v / (vmax || 1)) * HB))]++; n++; }
+  }
   const P = q => { let acc = 0; const want = q * n; for (let k = 0; k < HB; k++) { acc += hist[k]; if (acc >= want) return ((k + 0.5) / HB) * vmax; } return vmax; };
   const a = P(0.04), b = Math.max(P(0.985), a + 1e-4);
   for (let i = 0; i < vals.length; i++) {
@@ -133,23 +140,38 @@ export function createDotRenderer(canvas) {
   const loc = gl.getAttribLocation(prog, 'a_pos');
   gl.enableVertexAttribArray(loc);
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-  const tex = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, tex);
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-  for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+  const makeTex = () => {
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    return t;
+  };
+  const tex = [makeTex(), makeTex()];
   const u = name => gl.getUniformLocation(prog, name);
-  const U = { res: u('u_res'), dpr: u('u_dpr'), origin: u('u_origin'), size: u('u_size'), step: u('u_step'), unit: u('u_unit'), soft: u('u_soft'), ink: u('u_ink') };
-  gl.uniform1i(u('u_tone'), 0);
+  const U = { mix: u('u_mix'), res: u('u_res'), dpr: u('u_dpr'), origin: u('u_origin'), size: u('u_size'), step: u('u_step'), unit: u('u_unit'), soft: u('u_soft'), ink: u('u_ink') };
+  gl.uniform1i(u('u_prev'), 0);
+  gl.uniform1i(u('u_next'), 1);
   let texW = 0, texH = 0;
+  const upload = (unit, data, cols, rows) => {
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, tex[unit]);
+    if (texW !== cols || texH !== rows) gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, cols, rows, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, data);
+    else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, cols, rows, gl.LUMINANCE, gl.UNSIGNED_BYTE, data);
+  };
   return {
     get lost() { return gl.isContextLost(); },
-    /** 画一帧：tone 为 cols×rows 的亮度，geo 为布局（CSS 像素）。 */
-    draw(tone, cols, rows, geo) {
+    /** 换帧：prev / next 为 cols×rows 的亮度（约 3000 字节，两张一起传）。 */
+    frames(prev, next, cols, rows) {
       if (gl.isContextLost()) return;
-      if (texW !== cols || texH !== rows) {
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, cols, rows, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, tone);
-        texW = cols; texH = rows;
-      } else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, cols, rows, gl.LUMINANCE, gl.UNSIGNED_BYTE, tone);
+      upload(0, prev, cols, rows);
+      upload(1, next, cols, rows);
+      texW = cols; texH = rows;
+    },
+    /** 画一帧：mix 为两帧之间的插值，geo 为布局（CSS 像素）。 */
+    draw(mix, geo) {
+      if (gl.isContextLost() || !texW) return;
+      gl.uniform1f(U.mix, mix);
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.uniform2f(U.res, canvas.width, canvas.height);
       gl.uniform1f(U.dpr, geo.dpr);
