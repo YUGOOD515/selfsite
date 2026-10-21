@@ -426,6 +426,26 @@ main {
   --ambient-x: 64%;
   --ambient-y: 92%;
 }
+#scent-dialogue .project-ambient {
+  --ambient-x: 74%;
+  --ambient-y: 30%;
+}
+#moviedb .project-ambient {
+  --ambient-x: 84%;
+  --ambient-y: 62%;
+}
+#studyjourney .project-ambient {
+  --ambient-x: 58%;
+  --ambient-y: 90%;
+}
+#quantchain .project-ambient {
+  --ambient-x: 82%;
+  --ambient-y: 24%;
+}
+#auto-research .project-ambient {
+  --ambient-x: 68%;
+  --ambient-y: 72%;
+}
 [data-fluid] {
   isolation: isolate;
 }
