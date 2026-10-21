@@ -391,8 +391,8 @@ main {
 .project-ambient {
   --ambient-x: 78%;
   --ambient-y: 50%;
-  --ambient-scale: 1;
-  --ambient-blur: 3px;
+  --ambient-cell: 6; /* 每格渲染的物理像素，越小越省 */
+  --ambient-blur: 3px; /* 放大后的视觉模糊半径 */
   position: absolute;
   inset: 0;
   z-index: -1;
@@ -412,8 +412,26 @@ main {
   top: 50%;
   left: 50%;
   width: max-content;
-  transform: translate(-50%, -50%) scale(var(--ambient-scale));
-  filter: blur(var(--ambient-blur));
+  transform: translate(-50%, -50%) scale(var(--ambient-k, 1));
+  transform-origin: center;
+}
+/* 模糊在低分辨率画布上烘焙（见 ascii-art.js），原画布只占位 */
+.ambient-inner canvas {
+  visibility: hidden;
+}
+.ambient-inner .ambient-out {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  visibility: visible;
+}
+.ambient-inner .ambient-out.is-css-blur {
+  /* 不支持 canvas filter 的浏览器退回 CSS 模糊 */
+  filter: blur(calc(var(--ambient-blur) / var(--ambient-k, 1)));
+}
+.ambient-inner[hidden] {
+  display: none;
 }
 .ambient-inner pre {
   margin: 0;
