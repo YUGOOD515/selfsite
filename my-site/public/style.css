@@ -544,6 +544,30 @@ main {
   font-size: 14px;
   line-height: 1.9;
 }
+/* ASCII 签名：放在正文下方 */
+.project-ascii {
+  position: relative;
+  width: 100%;
+  max-width: 34em;
+  height: 120px;
+  margin-top: 28px;
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 14px;
+  pointer-events: none;
+}
+.project-ascii pre {
+  margin: 0;
+  font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+.project-ascii canvas {
+  display: block;
+  opacity: 0;
+  transition: opacity 900ms var(--ease);
+}
+.project-ascii.is-ready canvas {
+  opacity: 0.82;
+}
 .project-copy,
 .story-tabs {
   transition: transform 440ms var(--ease), opacity 440ms var(--ease);
@@ -914,6 +938,10 @@ main {
   .body-copy {
     margin-top: 15px;
   }
+  .project-ascii {
+    height: 88px;
+    margin-top: 20px;
+  }
   .contact-details {
     gap: 30px;
   }
@@ -1029,6 +1057,10 @@ main {
   }
   .project-copy .body-copy {
     font-size: 12px;
+  }
+  .project-ascii {
+    height: 68px;
+    margin-top: 18px;
   }
   .project-gallery {
     min-height: 380px;
