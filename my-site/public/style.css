@@ -1110,8 +1110,12 @@ main {
   .project-copy .body-copy {
     font-size: 12px;
   }
+  /* 手机：作品图占满宽度，背景移到右上角标题旁的留白，向左下淡出 */
   .project-ambient {
-    display: none;
+    bottom: auto;
+    height: 52%;
+    -webkit-mask-image: radial-gradient(ellipse 70% 62% at 88% 34%, #000 0%, rgb(0 0 0 / 0.45) 50%, transparent 100%);
+    mask-image: radial-gradient(ellipse 70% 62% at 88% 34%, #000 0%, rgb(0 0 0 / 0.45) 50%, transparent 100%);
   }
   .project-gallery {
     min-height: 380px;

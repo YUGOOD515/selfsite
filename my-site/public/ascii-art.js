@@ -1,13 +1,14 @@
 // 作品页背景氛围：基于 ascii-magic-art（MIT，vendor/ascii-magic/）。
 // 低分辨率渲染后放大，配合遮罩与低透明度形成淡雅、模糊的纹理；
-// 仅桌面端加载，接近视口才导入；只播放视口内的那一页，减少动态效果时停在首帧。
+// 接近视口才导入（手机端位置见 style.css）；只播放视口内的那一页，减少动态效果时停在首帧。
 // 性能：画布按小尺寸渲染再用 CSS 放大（模糊后看不出差别），并限制帧率。
 import { play } from './vendor/ascii-magic/runtime/player.js';
 
 const CELL_W = 0.602; // 等宽字符宽度 / 字号，与 runtime/canvas.js 一致
 const SPEED = 0.4; // 播放速度：放慢成"呼吸"
-const MAX_FPS = 12; // 慢速动画下 12 帧已足够顺滑
 const desktop = matchMedia('(min-width: 768px)');
+// 慢速动画下 12 帧已足够顺滑；手机再降一点省电
+const maxFps = () => (desktop.matches ? 12 : 10);
 const dark = matchMedia('(prefers-color-scheme: dark)');
 
 async function mount(layer) {
@@ -69,7 +70,7 @@ async function mount(layer) {
     fontPx = next;
     pre.style.fontSize = `${fontPx}px`;
     stop();
-    stop = play(pre, mod, { look, speed: SPEED, maxFps: MAX_FPS, onFrame: present });
+    stop = play(pre, mod, { look, speed: SPEED, maxFps: maxFps(), onFrame: present });
   };
   // 只在本页可见时播放：隐藏后 player 内部的 IntersectionObserver 判定离屏并暂停，
   // 动画状态保留，回来时接着播（作品页首尾相接，player 自带的 100px 余量会让相邻页也一直在跑）
@@ -86,14 +87,9 @@ async function mount(layer) {
 const layers = [...document.querySelectorAll('[data-ascii]')];
 const observer = new IntersectionObserver(entries => {
   entries.forEach(entry => {
-    if (!entry.isIntersecting || !desktop.matches) return;
+    if (!entry.isIntersecting) return;
     observer.unobserve(entry.target);
     mount(entry.target);
   });
 }, { rootMargin: '50% 0px' });
-const start = () => {
-  if (!desktop.matches) return; // 移动端不显示，也不加载
-  layers.forEach(layer => observer.observe(layer));
-};
-start();
-desktop.addEventListener('change', start);
+layers.forEach(layer => observer.observe(layer));
