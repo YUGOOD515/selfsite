@@ -73,8 +73,9 @@ const lum = hex => {
   return v;
 };
 
-/** 一帧字符画 → 每格网点亮度（0–255），与 paintTone 的归一方式一致。 */
-export function toneOf(frame, palette, cols, rows, out, vals) {
+/** 一帧字符画 → 每格网点亮度（0–255），与 paintTone 的归一方式一致。
+ *  win（可选）：[c0, r0, c1, r1]，只按这块（图层里看得见的部分）取百分位。 */
+export function toneOf(frame, palette, cols, rows, out, vals, win) {
   const text = typeof frame === 'string' ? frame : frame.text;
   const color = typeof frame === 'string' ? null : frame.color;
   const T = text.split('\n');
@@ -101,7 +102,11 @@ export function toneOf(frame, palette, cols, rows, out, vals) {
   // 4% / 98.5% 百分位做黑白点，曲线 1.1
   const HB = 256, hist = new Uint32Array(HB);
   let n = 0;
-  for (let i = 0; i < vals.length; i++) if (vals[i] >= 0) { hist[Math.min(HB - 1, Math.floor((vals[i] / (vmax || 1)) * HB))]++; n++; }
+  const [c0, r0, c1, r1] = win || [0, 0, cols, rows];
+  for (let r = r0; r < r1; r++) for (let c = c0; c < c1; c++) {
+    const v = vals[r * cols + c];
+    if (v >= 0) { hist[Math.min(HB - 1, Math.floor((v / (vmax || 1)) * HB))]++; n++; }
+  }
   const P = q => { let acc = 0; const want = q * n; for (let k = 0; k < HB; k++) { acc += hist[k]; if (acc >= want) return ((k + 0.5) / HB) * vmax; } return vmax; };
   const a = P(0.04), b = Math.max(P(0.985), a + 1e-4);
   for (let i = 0; i < vals.length; i++) {

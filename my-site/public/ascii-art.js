@@ -37,6 +37,19 @@ async function mount(layer) {
   requestAnimationFrame(() => layer.classList.add('is-ready'));
 }
 
+// 亮度图做一次 [1 2 1] 横竖平滑（约 3000 格，开销可忽略）；格子是窄高的，横向多做一遍
+function blur121(a, t, cols, rows) {
+  const pass = (src, dst, dx, dy) => {
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const i = r * cols + c;
+      const p = c - dx >= 0 && r - dy >= 0 ? i - dx - dy * cols : i;
+      const n = c + dx < cols && r + dy < rows ? i + dx + dy * cols : i;
+      dst[i] = (src[p] + 2 * src[i] + src[n] + 2) >> 2;
+    }
+  };
+  pass(a, t, 1, 0); pass(t, a, 1, 0); pass(a, t, 0, 1); a.set(t);
+}
+
 // 共用调度：一个 rAF 驱动所有播放中的作品
 const players = new Set();
 let raf = 0, prevNow = 0;
@@ -71,6 +84,9 @@ function mountGL(layer, mod) {
   let nextTone = new Uint8Array(cols * rows);
   const vals = new Float32Array(cols * rows);
   let geo = null;
+  let win = null; // 归一用的可见格子范围
+  let smooth = 0; // --ambient-smooth：亮度图的平滑次数，柔化作品里的硬边
+  const tmp = new Uint8Array(cols * rows);
   let elapsed = 0;
   let near = false; // 当前页或相邻页：持有画布、播放
   let visible = false; // 在视口内：绘制
@@ -85,19 +101,29 @@ function mountGL(layer, mod) {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     // 铺满图层（cover）：字号决定格子大小，作品居中
     const rowPx = cell === 'square' ? CELL_W : 1;
-    const font = Math.max(width / (cols * CELL_W), height / (rows * rowPx));
+    // --ambient-zoom（≥1）：在铺满的基础上再放大画面、只取一部分；网点大小不变（按铺满时的格子算），
+    // 放大的画面由显卡在格子之间插值，边缘反而更柔
+    const fit = Math.max(width / (cols * CELL_W), height / (rows * rowPx));
+    const font = fit * Math.max(1, cssNumber(layer, '--ambient-zoom', 1));
     const cw = font * CELL_W;
     const ch = cell === 'square' ? cw : font;
-    const unit = Math.min(cw, ch);
+    const unit = Math.min(fit * CELL_W, cell === 'square' ? fit * CELL_W : fit);
     geo = {
       dpr, unit, step: unit / DENSITY,
       w: cols * cw, h: rows * ch,
-      ox: (width - cols * cw) / 2, oy: (height - rows * ch) / 2,
+      // 取景：--ambient-focus-x/y（0–1）把作品的哪一点放在图层中心，默认居中，不留空边
+      ox: Math.min(0, Math.max(width - cols * cw, width / 2 - cssNumber(layer, '--ambient-focus-x', 0.5) * cols * cw)),
+      oy: Math.min(0, Math.max(height - rows * ch, height / 2 - cssNumber(layer, '--ambient-focus-y', 0.5) * rows * ch)),
       soft: cssNumber(layer, '--ambient-soft', 0),
       ink: inkOf(layer),
     };
     const W = Math.round(width * dpr), H = Math.round(height * dpr);
     if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+    smooth = Math.max(0, Math.round(cssNumber(layer, '--ambient-smooth', 0)));
+    // --ambient-normalize: 1 时只按看得见的格子定黑白点（作品被裁掉一大半时，剩下的部分不至于太暗）
+    win = cssNumber(layer, '--ambient-normalize', 0) > 0
+      ? [Math.max(0, Math.floor(-geo.ox / cw)), Math.max(0, Math.floor(-geo.oy / ch)), Math.min(cols, Math.ceil((width - geo.ox) / cw)), Math.min(rows, Math.ceil((height - geo.oy) / ch))]
+      : null;
     dirty = true;
     return true;
   };
@@ -105,7 +131,8 @@ function mountGL(layer, mod) {
   const step = () => {
     const f = draw(elapsed);
     [prevTone, nextTone] = [nextTone, prevTone];
-    toneOf(f, f.palette || mod.meta.palette, cols, rows, nextTone, vals);
+    toneOf(f, f.palette || mod.meta.palette, cols, rows, nextTone, vals, win);
+    for (let k = 0; k < smooth; k++) blur121(nextTone, tmp, cols, rows);
     if (!frames++) prevTone.set(nextTone);
     gl.frames(prevTone, nextTone, cols, rows);
   };

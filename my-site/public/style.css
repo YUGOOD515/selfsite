@@ -1125,6 +1125,15 @@ main {
     -webkit-mask-image: radial-gradient(ellipse 70% 62% at 88% 34%, #000 0%, rgb(0 0 0 / 0.45) 50%, transparent 100%);
     mask-image: radial-gradient(ellipse 70% 62% at 88% 34%, #000 0%, rgb(0 0 0 / 0.45) 50%, transparent 100%);
   }
+  /* MovieDB：竖屏裁切会露出放映机银幕的直边，改为只取放大的光束和浮尘，放在箭头与副标题右侧的空白里，不压正文 */
+  #moviedb .project-ambient {
+    --ambient-zoom: 1.6;
+    --ambient-focus-x: 0.522;
+    --ambient-focus-y: 0.47;
+    --ambient-normalize: 1;
+    -webkit-mask-image: radial-gradient(ellipse 58% 22% at 80% 50%, #000 0%, rgb(0 0 0 / 0.45) 50%, transparent 100%);
+    mask-image: radial-gradient(ellipse 58% 22% at 80% 50%, #000 0%, rgb(0 0 0 / 0.45) 50%, transparent 100%);
+  }
   .project-gallery {
     min-height: 380px;
   }
